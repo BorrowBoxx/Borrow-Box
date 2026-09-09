@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BorrowBox - Campus Sharing</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -23,6 +23,8 @@
       --free-badge-bg: rgba(16, 185, 129, 0.14);
       --req-badge: #c084fc;
       --req-badge-bg: rgba(192, 132, 252, 0.14);
+      --pinned-badge: #f59e0b;
+      --pinned-badge-bg: rgba(245, 158, 11, 0.14);
       --danger: #f43f5e;
     }
 
@@ -48,8 +50,22 @@
       max-width: 760px;
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 16px;
       padding-bottom: 90px;
+    }
+
+    /* Broadcast Alert Banner */
+    .broadcast-banner {
+      display: none;
+      background: linear-gradient(90deg, #4f46e5, #06b6d4);
+      padding: 10px 16px;
+      border-radius: 12px;
+      color: white;
+      font-size: 0.88rem;
+      font-weight: 600;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 16px rgba(79, 70, 229, 0.3);
     }
 
     /* Glass Header */
@@ -270,6 +286,11 @@
       transition: all 0.2s ease;
     }
 
+    .item-card.is-pinned {
+      border-color: rgba(245, 158, 11, 0.35);
+      background: rgba(245, 158, 11, 0.03);
+    }
+
     .item-card:hover {
       background: rgba(255, 255, 255, 0.05);
       border-color: var(--surface-border-hover);
@@ -312,6 +333,7 @@
     .price-paid { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.25); }
     .type-request { background: var(--req-badge-bg); color: var(--req-badge); border: 1px solid rgba(192, 132, 252, 0.25); }
     .status-borrowed { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+    .badge-pinned { background: var(--pinned-badge-bg); color: var(--pinned-badge); border: 1px solid rgba(245, 158, 11, 0.3); }
 
     .btn-action {
       background: rgba(255, 255, 255, 0.07);
@@ -347,13 +369,26 @@
     }
 
     .btn-admin {
-      background: rgba(239, 68, 68, 0.2) !important;
+      background: rgba(239, 68, 68, 0.15) !important;
       color: #f87171 !important;
-      border-color: #ef4444 !important;
+      border-color: rgba(239, 68, 68, 0.4) !important;
+      font-size: 0.75rem;
     }
 
     .btn-admin:hover {
       background: #ef4444 !important;
+      color: white !important;
+    }
+
+    .btn-admin-amber {
+      background: rgba(245, 158, 11, 0.15) !important;
+      color: #fbbf24 !important;
+      border-color: rgba(245, 158, 11, 0.4) !important;
+      font-size: 0.75rem;
+    }
+
+    .btn-admin-amber:hover {
+      background: #f59e0b !important;
       color: white !important;
     }
 
@@ -400,16 +435,17 @@
     .drawer {
       position: fixed;
       top: 0;
-      left: -300px;
-      width: 290px;
+      left: -320px;
+      width: 300px;
       height: 100vh;
       background: #11141c;
       border-right: 1px solid var(--surface-border);
       padding: 24px 20px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
       z-index: 1001;
+      overflow-y: auto;
       transition: left 0.28s cubic-bezier(0.16, 1, 0.3, 1);
       box-shadow: 10px 0 30px rgba(0, 0, 0, 0.4);
     }
@@ -457,11 +493,6 @@
       border-color: rgba(244, 63, 94, 0.3) !important;
     }
 
-    .btn-signout:hover {
-      background: rgba(244, 63, 94, 0.12) !important;
-      border-color: var(--danger) !important;
-    }
-
     .profile-box {
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid var(--surface-border);
@@ -481,6 +512,34 @@
       font-family: inherit;
       font-size: 0.9rem;
     }
+
+    /* Admin Deck Section */
+    .admin-deck-box {
+      display: none;
+      background: rgba(239, 68, 68, 0.05);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: 14px;
+      padding: 14px;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .admin-stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .admin-stat-card {
+      background: #0d0f14;
+      border: 1px solid var(--surface-border);
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+    }
+
+    .admin-stat-val { font-size: 1.15rem; font-weight: 800; color: #818cf8; }
+    .admin-stat-lbl { font-size: 0.68rem; color: var(--text-muted); }
 
     /* Modals */
     .modal-backdrop {
@@ -626,12 +685,15 @@
       border: 1px solid var(--surface-border);
       padding: 14px 16px;
       border-radius: 12px;
-      cursor: pointer;
       margin-bottom: 10px;
       transition: all 0.2s ease;
     }
 
-    .inbox-card:hover {
+    .inbox-card.clickable {
+      cursor: pointer;
+    }
+
+    .inbox-card.clickable:hover {
       border-color: var(--surface-border-hover);
       background: rgba(255, 255, 255, 0.05);
       transform: translateY(-1px);
@@ -670,7 +732,6 @@
       text-align: center; color: var(--text-muted); padding: 42px 16px; font-size: 0.95rem; line-height: 1.5;
     }
 
-    /* Terms & Legal Styling */
     .terms-text-box {
       font-size: 0.85rem;
       color: var(--text-muted);
@@ -680,9 +741,7 @@
       gap: 12px;
     }
 
-    .terms-text-box strong {
-      color: var(--text);
-    }
+    .terms-text-box strong { color: var(--text); }
 
     .terms-checkbox-label {
       display: flex;
@@ -738,6 +797,7 @@
     ];
 
     let currentUser = null;
+    let isCurrentUserBanned = false;
     let activeConversationId = null;
     let unsubscribeMessages = null;
 
@@ -752,14 +812,24 @@
       return currentUser ? (currentUser.displayName || currentUser.email.split("@")[0]) : "Student";
     }
 
-    // 1. Auth Listener & Terms Gate
+    // 1. Auth Listener, Ban Check & Terms Gate
     onAuthStateChanged(auth, async (user) => {
       currentUser = user;
       const headerAuth = document.getElementById("headerAuthSection");
       const drawerAuth = document.getElementById("drawerAuthSection");
       const profileSection = document.getElementById("profileSection");
+      const adminDeck = document.getElementById("adminDeck");
 
       if (user) {
+        // Verify Ban Status
+        const banSnap = await getDoc(doc(db, "bannedUsers", user.uid));
+        if (banSnap.exists()) {
+          isCurrentUserBanned = true;
+          document.getElementById("banNoticeModal").style.display = "flex";
+          signOut(auth);
+          return;
+        }
+
         if (!localStorage.getItem("borrowbox_custom_name")) {
           localStorage.setItem("borrowbox_custom_name", user.displayName || user.email.split("@")[0]);
         }
@@ -777,12 +847,23 @@
           <button class="btn-signout" onclick="logout()">🚪 Sign Out</button>
         `;
 
+        // Check if current user is Master Admin
+        if (user.email === ADMIN_EMAIL) {
+          adminDeck.style.display = "flex";
+          document.getElementById("btnAdminQueue").style.display = "flex";
+        } else {
+          adminDeck.style.display = "none";
+          document.getElementById("btnAdminQueue").style.display = "none";
+        }
+
         checkTermsConsent(user);
       } else {
         headerAuth.innerHTML = `
           <button class="btn-header-auth" onclick="login()">Sign In</button>
         `;
         profileSection.style.display = "none";
+        adminDeck.style.display = "none";
+        document.getElementById("btnAdminQueue").style.display = "none";
         drawerAuth.innerHTML = ``;
       }
       renderFeed();
@@ -863,13 +944,44 @@
       closeDrawer();
     };
 
-    // 2. Real-Time Feed Listener
+    // 2. Real-Time Broadcast Announcement Listener
+    onSnapshot(doc(db, "system", "announcement"), (snap) => {
+      const banner = document.getElementById("broadcastBanner");
+      const textEl = document.getElementById("broadcastText");
+      if (snap.exists() && snap.data().active && snap.data().message) {
+        textEl.innerText = "📢 " + snap.data().message;
+        banner.style.display = "flex";
+      } else {
+        banner.style.display = "none";
+      }
+    });
+
+    // 3. Real-Time Feed Listener & Stats Calculation
     const qItems = query(collection(db, "items"), orderBy("createdAt", "desc"));
     onSnapshot(qItems, (snapshot) => {
       allItems = [];
+      let activeCount = 0;
+      let reqCount = 0;
+      let resolvedCount = 0;
+      let flaggedCount = 0;
+
       snapshot.forEach(docSnap => {
-        allItems.push({ id: docSnap.id, ...docSnap.data() });
+        const data = docSnap.data();
+        allItems.push({ id: docSnap.id, ...data });
+
+        if (data.status === "borrowed") resolvedCount++;
+        else activeCount++;
+
+        if (data.type === "request") reqCount++;
+        if ((data.reportCount || 0) > 0) flaggedCount++;
       });
+
+      // Update Live Admin Counters
+      document.getElementById("statActive").innerText = activeCount;
+      document.getElementById("statReq").innerText = reqCount;
+      document.getElementById("statResolved").innerText = resolvedCount;
+      document.getElementById("statFlagged").innerText = flaggedCount;
+
       renderFeed();
     });
 
@@ -877,7 +989,14 @@
       const feedContainer = document.getElementById("itemFeed");
       feedContainer.innerHTML = "";
 
-      const filtered = allItems.filter(item => {
+      // Sort: Pinned items stay on top, followed by date
+      const sorted = [...allItems].sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+      });
+
+      const filtered = sorted.filter(item => {
         const matchesFilter = (currentFilter === "all") || (item.type === "request");
         const text = `${item.title || ""} ${item.location || ""} ${item.ownerName || ""}`.toLowerCase();
         const matchesSearch = !searchQuery || text.includes(searchQuery.toLowerCase());
@@ -894,18 +1013,21 @@
         const isAdmin = currentUser && currentUser.email === ADMIN_EMAIL;
         const isBorrowed = item.status === "borrowed";
         const isRequest = item.type === "request";
+        const isPinned = item.pinned === true;
 
         const div = document.createElement("div");
-        div.className = "item-card";
+        div.className = `item-card ${isPinned ? 'is-pinned' : ''}`;
         div.innerHTML = `
           <div>
-            <div class="item-title">${item.title || "Untitled"}</div>
+            <div class="item-title">${isPinned ? '📌 ' : ''}${item.title || "Untitled"}</div>
             <div class="item-sub">
               📍 ${item.location || "Campus"} • ${isRequest ? "Wanted by" : "Posted by"}: <strong>${isOwner ? "You (" + item.ownerName + ")" : (item.ownerName || "Student")}</strong>
+              ${isAdmin && (item.reportCount || 0) > 0 ? `<br><small style="color:#f87171;">🚩 Flags: ${item.reportCount}</small>` : ''}
             </div>
           </div>
           <div class="item-actions">
             <div class="pill-group">
+              ${isPinned ? '<span class="price-pill badge-pinned">PINNED</span>' : ''}
               ${isRequest 
                 ? '<span class="price-pill type-request">REQUEST</span>' 
                 : `<span class="price-pill ${item.isFree ? 'price-free' : 'price-paid'}">${item.isFree ? "FREE" : "₹" + item.price}</span>`
@@ -913,7 +1035,7 @@
               ${isBorrowed ? '<span class="price-pill status-borrowed">RESOLVED</span>' : ''}
             </div>
 
-            <div style="display:flex; gap:6px; margin-top:2px;">
+            <div style="display:flex; gap:6px; margin-top:2px; flex-wrap:wrap; justify-content:flex-end;">
               ${isOwner ? `
                 <button class="btn-action" onclick="openOwnerItemChats('${item.id}', '${item.title.replace(/'/g, "\\'")}')">
                   💬 Inquiries
@@ -930,8 +1052,12 @@
                 <button class="btn-action" title="Report inappropriate post" onclick="reportItem('${item.id}')">🚩</button>
               `}
               
-              ${isAdmin && !isOwner ? `
-                <button class="btn-action btn-admin" title="Admin Delete" onclick="deleteItem('${item.id}', true)">⚡ Admin Delete</button>
+              ${isAdmin ? `
+                <button class="btn-action btn-admin-amber" title="Pin / Unpin" onclick="togglePinItem('${item.id}', ${isPinned})">
+                  ${isPinned ? 'Unpin' : '📌 Pin'}
+                </button>
+                <button class="btn-action btn-admin" title="Admin Delete" onclick="deleteItem('${item.id}', true)">⚡ Delete</button>
+                ${!isOwner ? `<button class="btn-action btn-admin" title="Ban User" onclick="banUser('${item.ownerUid}', '${item.ownerName.replace(/'/g, "\\'")}')">🚫 Ban</button>` : ''}
               ` : ''}
             </div>
           </div>
@@ -952,7 +1078,7 @@
       renderFeed();
     };
 
-    // 3. Modal Form: Moderation + Submission
+    // 4. Modal Form Submission
     window.setFormMode = function(mode) {
       activeFormMode = mode;
       const tabLend = document.getElementById("tabLend");
@@ -997,7 +1123,6 @@
 
       if (!title) return alert("Please enter what you are lending or requesting.");
 
-      // 🛡️ Content Moderation Filter Check
       const fullText = (title + " " + location).toLowerCase();
       const violatedWord = BANNED_KEYWORDS.find(word => {
         const regex = new RegExp(`\\b${word}\\b`, "i");
@@ -1021,6 +1146,7 @@
         isFree: isRequest ? true : isFree,
         price: isRequest ? 0 : (isFree ? 0 : Number(price)),
         status: "available",
+        pinned: false,
         reportCount: 0,
         createdAt: serverTimestamp()
       });
@@ -1067,7 +1193,76 @@
       }
     };
 
-    // 4. Drawer & History
+    // ⚡ MASTER ADMIN POWERS
+    window.togglePinItem = async (id, isCurrentlyPinned) => {
+      await updateDoc(doc(db, "items", id), {
+        pinned: !isCurrentlyPinned
+      });
+    };
+
+    window.banUser = async (uid, name) => {
+      if (confirm(`🚫 Are you sure you want to BAN ${name} permanently? They will lose all access.`)) {
+        await setDoc(doc(db, "bannedUsers", uid), {
+          bannedAt: serverTimestamp(),
+          name: name
+        });
+        alert(`${name} has been banned from BorrowBox.`);
+      }
+    };
+
+    window.saveBroadcast = async () => {
+      const text = document.getElementById("adminBroadcastInput").value.trim();
+      if (!text) {
+        if (confirm("Clear broadcast banner for everyone?")) {
+          await setDoc(doc(db, "system", "announcement"), { active: false, message: "" });
+        }
+        return;
+      }
+      await setDoc(doc(db, "system", "announcement"), { active: true, message: text });
+      alert("Broadcast banner published live!");
+      document.getElementById("adminBroadcastInput").value = "";
+    };
+
+    window.openReportQueue = () => {
+      closeDrawer();
+      document.getElementById("reportQueueModal").style.display = "flex";
+      const list = document.getElementById("reportQueueList");
+      list.innerHTML = "";
+
+      const flagged = allItems.filter(item => (item.reportCount || 0) > 0);
+      if (flagged.length === 0) {
+        list.innerHTML = "<div class='empty-state'>🎉 No flagged posts! Campus is clean.</div>";
+        return;
+      }
+
+      flagged.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "inbox-card";
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <strong style="color:#f87171;">🚩 Flags: ${item.reportCount}</strong>
+              <div class="item-title" style="margin-top:4px;">${item.title}</div>
+              <div class="item-sub">By: ${item.ownerName} • 📍 ${item.location}</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button class="btn-action" onclick="dismissFlags('${item.id}')">Dismiss</button>
+              <button class="btn-action btn-danger" onclick="deleteItem('${item.id}', true)">Delete</button>
+            </div>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    };
+
+    window.closeReportQueue = () => { document.getElementById("reportQueueModal").style.display = "none"; };
+
+    window.dismissFlags = async (id) => {
+      await updateDoc(doc(db, "items", id), { reportCount: 0 });
+      openReportQueue(); // Refresh queue
+    };
+
+    // 5. Drawer & History
     window.openDrawer = () => {
       document.getElementById("drawer").classList.add("open");
       document.getElementById("drawerOverlay").style.display = "block";
@@ -1115,7 +1310,7 @@
 
     window.closeHistory = () => { document.getElementById("historyModal").style.display = "none"; };
 
-    // 5. Chats & Inbox
+    // 6. Chats & Inbox
     window.openInbox = function() {
       closeDrawer();
       if (!currentUser) return alert("Please sign in from the top right first!");
@@ -1142,7 +1337,7 @@
           const otherPerson = isLender ? c.borrowerName : c.lenderName;
 
           const card = document.createElement("div");
-          card.className = "inbox-card";
+          card.className = "inbox-card clickable";
           card.onclick = () => {
             closeInbox();
             openChatWindow(d.id, `${c.itemTitle} (with ${otherPerson})`);
@@ -1265,6 +1460,12 @@
 </head>
 <body>
   <div class="app-wrapper">
+    <!-- Real-time Broadcast Banner -->
+    <div class="broadcast-banner" id="broadcastBanner">
+      <span id="broadcastText"></span>
+      <button style="background:none; border:none; color:white; font-size:1.1rem; cursor:pointer;" onclick="document.getElementById('broadcastBanner').style.display='none'">✕</button>
+    </div>
+
     <!-- Header -->
     <header>
       <div class="header-left">
@@ -1321,6 +1522,32 @@
       <button class="close-btn" onclick="closeDrawer()">✕</button>
     </div>
     <div class="drawer-nav">
+      <!-- Admin Deck (Visible Only to ADMIN_EMAIL) -->
+      <div id="adminDeck" class="admin-deck-box">
+        <strong style="color:#ef4444; font-size:0.85rem; letter-spacing:0.5px;">⚡ MASTER ADMIN DECK</strong>
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <div class="admin-stat-val" id="statActive">0</div>
+            <div class="admin-stat-lbl">Active Items</div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="admin-stat-val" id="statReq">0</div>
+            <div class="admin-stat-lbl">Requests</div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="admin-stat-val" id="statResolved">0</div>
+            <div class="admin-stat-lbl">Resolved</div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="admin-stat-val" id="statFlagged" style="color:#f87171;">0</div>
+            <div class="admin-stat-lbl">Flagged</div>
+          </div>
+        </div>
+
+        <input type="text" id="adminBroadcastInput" placeholder="Broadcast alert to all users..." style="margin-top:4px;" />
+        <button class="btn-action btn-admin" onclick="saveBroadcast()">📢 Update Broadcast</button>
+      </div>
+
       <div id="profileSection" class="profile-box" style="display:none;">
         <label for="customNameInput" style="font-size:0.75rem;">Your Campus Handle</label>
         <input type="text" id="customNameInput" placeholder="e.g. Sasi, Rahul" />
@@ -1329,6 +1556,7 @@
 
       <button onclick="openInbox()">💬 My Conversations</button>
       <button onclick="openHistory()">📜 My Activity &amp; History</button>
+      <button id="btnAdminQueue" style="display:none; color:#f87171;" onclick="openReportQueue()">🚩 Moderation Queue</button>
       <button onclick="openTermsReview()">⚖️ Terms &amp; Safety</button>
       
       <div id="drawerAuthSection" style="margin-top:10px;"></div>
@@ -1386,6 +1614,32 @@
     </div>
   </div>
 
+  <!-- REPORTED QUEUE MODAL (ADMIN ONLY) -->
+  <div class="modal-backdrop" id="reportQueueModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <strong style="font-size:1.05rem; color:#f87171;">🚩 Moderation Queue</strong>
+        <button class="close-btn" onclick="closeReportQueue()">✕</button>
+      </div>
+      <div class="modal-body" id="reportQueueList"></div>
+    </div>
+  </div>
+
+  <!-- BANNED NOTICE MODAL -->
+  <div class="modal-backdrop" id="banNoticeModal" style="z-index: 2000;">
+    <div class="modal-box">
+      <div class="modal-header">
+        <strong style="font-size:1.05rem; color:#f87171;">🚫 Account Suspended</strong>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.9rem; color:var(--text-muted); line-height:1.5;">
+          Your account has been suspended by campus moderators for violating community safety guidelines.
+        </p>
+        <button class="btn-action" style="width:100%; margin-top:20px;" onclick="document.getElementById('banNoticeModal').style.display='none'">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- CHAT MODAL -->
   <div class="modal-backdrop" id="chatModal">
     <div class="modal-box">
@@ -1404,7 +1658,7 @@
     </div>
   </div>
 
-  <!-- MANDATORY TERMS GATE MODAL (Shows on first sign-in) -->
+  <!-- MANDATORY TERMS GATE MODAL -->
   <div class="modal-backdrop" id="termsModal">
     <div class="modal-box">
       <div class="modal-header">
@@ -1427,7 +1681,7 @@
     </div>
   </div>
 
-  <!-- TERMS REVIEW MODAL (From Drawer) -->
+  <!-- TERMS REVIEW MODAL -->
   <div class="modal-backdrop" id="termsReviewModal">
     <div class="modal-box">
       <div class="modal-header">
