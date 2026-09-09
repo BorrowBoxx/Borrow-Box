@@ -71,6 +71,42 @@
       letter-spacing: -0.5px;
     }
 
+    /* Outer Sign In Button in Header */
+    .header-right {
+      display: flex;
+      align-items: center;
+    }
+
+    .btn-header-auth {
+      background: var(--primary);
+      border: none;
+      color: white;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s ease;
+    }
+
+    .btn-header-auth:hover { background: var(--primary-hover); }
+
+    .user-pill-header {
+      background: #252525;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 99px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -265,6 +301,16 @@
 
     .drawer-nav button:hover { border-color: var(--primary); }
 
+    .btn-signout {
+      color: var(--danger) !important;
+      border-color: rgba(255,82,82,0.3) !important;
+    }
+
+    .btn-signout:hover {
+      background: rgba(255,82,82,0.1) !important;
+      border-color: var(--danger) !important;
+    }
+
     .profile-box {
       background: #222;
       border: 1px solid var(--border);
@@ -392,16 +438,16 @@
     let activeConversationId = null;
     let unsubscribeMessages = null;
 
-    // Helper: Retrieve the chosen display name
     function getMyDisplayName() {
       const saved = localStorage.getItem("borrowbox_custom_name");
       if (saved && saved.trim()) return saved.trim();
       return currentUser ? (currentUser.displayName || currentUser.email.split("@")[0]) : "Student";
     }
 
-    // 1. Auth Listener
+    // 1. Auth Listener: Sign In stays OUTSIDE in the header; Sign Out stays INSIDE the drawer
     onAuthStateChanged(auth, (user) => {
       currentUser = user;
+      const headerAuth = document.getElementById("headerAuthSection");
       const drawerAuth = document.getElementById("drawerAuthSection");
       const profileSection = document.getElementById("profileSection");
 
@@ -410,17 +456,29 @@
           localStorage.setItem("borrowbox_custom_name", user.displayName || user.email.split("@")[0]);
         }
 
+        // Header shows small profile pill that opens the menu
+        headerAuth.innerHTML = `
+          <div class="user-pill-header" onclick="openDrawer()">
+            👤 ${getMyDisplayName().split(" ")[0]}
+          </div>
+        `;
+
+        // Inside Drawer: Name editor and Sign Out
         profileSection.style.display = "flex";
         document.getElementById("customNameInput").value = getMyDisplayName();
 
         drawerAuth.innerHTML = `
-          <button onclick="logout()">🚪 Sign Out</button>
+          <button class="btn-signout" onclick="logout()">🚪 Sign Out</button>
         `;
       } else {
-        profileSection.style.display = "none";
-        drawerAuth.innerHTML = `
-          <button onclick="login()">🔑 Google Sign In</button>
+        // Outside Header: Direct Sign In Button
+        headerAuth.innerHTML = `
+          <button class="btn-header-auth" onclick="login()">Sign In</button>
         `;
+
+        // Inside Drawer: Clean empty state
+        profileSection.style.display = "none";
+        drawerAuth.innerHTML = ``;
       }
     });
 
@@ -430,12 +488,18 @@
       if (!val) return alert("Display name cannot be empty.");
       localStorage.setItem("borrowbox_custom_name", val);
       alert("Display name updated to: " + val);
+      if (currentUser) {
+        document.getElementById("headerAuthSection").innerHTML = `
+          <div class="user-pill-header" onclick="openDrawer()">
+            👤 ${val.split(" ")[0]}
+          </div>
+        `;
+      }
     };
 
     window.login = async () => {
       try { 
         await signInWithPopup(auth, provider);
-        closeDrawer();
       } catch (err) { alert("Login failed: " + err.message); }
     };
 
@@ -501,9 +565,9 @@
       });
     });
 
-    // 3. Floating Action Button & Form Modal
+    // 3. FAB & Modal
     window.openFormModal = () => {
-      if (!currentUser) return alert("Please sign in from the menu (☰) before listing gear!");
+      if (!currentUser) return alert("Please click 'Sign In' at the top right before listing gear!");
       document.getElementById("formModal").style.display = "flex";
     };
     window.closeFormModal = () => { document.getElementById("formModal").style.display = "none"; };
@@ -548,7 +612,7 @@
       }
     };
 
-    // 4. Drawer Logic
+    // 4. Drawer Navigation
     window.openDrawer = () => {
       document.getElementById("drawer").classList.add("open");
       document.getElementById("drawerOverlay").style.display = "block";
@@ -562,7 +626,7 @@
     // 5. Chats & Inbox
     window.openInbox = function() {
       closeDrawer();
-      if (!currentUser) return alert("Please sign in first!");
+      if (!currentUser) return alert("Please click 'Sign In' at the top right first!");
       document.getElementById("inboxModal").style.display = "flex";
 
       const listEl = document.getElementById("inboxList");
@@ -603,7 +667,7 @@
     window.closeInbox = () => { document.getElementById("inboxModal").style.display = "none"; };
 
     window.startChatWithLender = async function(itemId, itemTitle, lenderUid, lenderName) {
-      if (!currentUser) return alert("Please sign in from the menu (☰) to chat.");
+      if (!currentUser) return alert("Please click 'Sign In' at the top right to chat.");
       if (currentUser.uid === lenderUid) return alert("This is your own listing!");
 
       const myName = getMyDisplayName();
@@ -711,6 +775,10 @@
         <button class="menu-btn" onclick="openDrawer()">☰</button>
         <h1>BorrowBox</h1>
       </div>
+      <!-- Out of the lines: Sign In lives right here -->
+      <div class="header-right" id="headerAuthSection">
+        <button class="btn-header-auth" onclick="login()">Sign In</button>
+      </div>
     </header>
 
     <!-- Main Feed -->
@@ -733,14 +801,16 @@
       <button class="close-btn" onclick="closeDrawer()">✕</button>
     </div>
     <div class="drawer-nav">
-      <!-- Dedicated Name Section -->
+      <!-- Profile Display Name Section -->
       <div id="profileSection" class="profile-box" style="display:none;">
         <label for="customNameInput" style="font-size:0.75rem; color:var(--text-muted);">Your Display Name</label>
-        <input type="text" id="customNameInput" placeholder="e.g. Sasi, Rahul (Hostel 2)" />
+        <input type="text" id="customNameInput" placeholder="e.g. Sasi, Rahul" />
         <button class="btn-sm" onclick="saveCustomName()">Save Name</button>
       </div>
 
       <button onclick="openInbox()">💬 My Chats</button>
+      
+      <!-- Inside the lines: Sign Out lives here -->
       <div id="drawerAuthSection" style="margin-top:10px;"></div>
     </div>
   </div>
