@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BorrowBox - Campus Lending</title>
+  <title>BorrowBox - Campus Sharing</title>
   <style>
     :root {
       --bg: #121212;
@@ -107,15 +107,14 @@
       gap: 6px;
     }
 
-    /* Search & Filter Section */
+    /* Clean Search & View Toggle */
     .filter-section {
       display: flex;
-      flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
 
     .search-input {
-      width: 100%;
+      flex: 1;
       padding: 12px 14px;
       border-radius: 10px;
       border: 1px solid var(--border);
@@ -126,30 +125,20 @@
 
     .search-input:focus { outline: 2px solid var(--primary); }
 
-    .category-scroll {
-      display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-      scrollbar-width: none;
-    }
-
-    .category-scroll::-webkit-scrollbar { display: none; }
-
-    .cat-chip {
+    .view-toggle-btn {
       background: var(--surface);
       border: 1px solid var(--border);
       color: var(--text-muted);
-      padding: 6px 14px;
-      border-radius: 99px;
-      font-size: 0.8rem;
+      padding: 0 16px;
+      border-radius: 10px;
+      font-size: 0.85rem;
       font-weight: 600;
-      white-space: nowrap;
       cursor: pointer;
+      white-space: nowrap;
       transition: all 0.15s ease;
     }
 
-    .cat-chip.active {
+    .view-toggle-btn.active {
       background: var(--primary);
       color: white;
       border-color: var(--primary);
@@ -183,7 +172,7 @@
     .item-title {
       font-size: 1.05rem;
       font-weight: 600;
-      margin-bottom: 3px;
+      margin-bottom: 4px;
     }
 
     .item-sub {
@@ -197,7 +186,7 @@
       flex-direction: column;
       align-items: flex-end;
       gap: 6px;
-      min-width: 125px;
+      min-width: 120px;
     }
 
     .pill-group { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
@@ -391,7 +380,7 @@
       overflow-y: auto;
     }
 
-    /* Modal Form Segmented Tabs (Lend vs Request) */
+    /* Modal Form Segmented Tabs */
     .form-tabs {
       display: flex;
       background: #252525;
@@ -424,12 +413,12 @@
       font-size: 0.8rem;
       color: var(--text-muted);
       margin-bottom: 4px;
-      margin-top: 10px;
+      margin-top: 12px;
     }
 
     label:first-of-type { margin-top: 0; }
 
-    input, select, .btn-primary {
+    input, .btn-primary {
       width: 100%;
       padding: 11px;
       border-radius: 8px;
@@ -439,10 +428,10 @@
       font-size: 0.95rem;
     }
 
-    input:focus, select:focus { outline: 2px solid var(--primary); }
+    input:focus { outline: 2px solid var(--primary); }
 
     .btn-primary {
-      margin-top: 16px;
+      margin-top: 18px;
       background: var(--primary);
       border: none;
       font-weight: 600;
@@ -516,9 +505,8 @@
     let activeConversationId = null;
     let unsubscribeMessages = null;
 
-    // In-memory feed cache for client-side search/filtering
     let allItems = [];
-    let selectedCategory = "All";
+    let currentFilter = "all"; // "all" or "requests"
     let searchQuery = "";
     let activeFormMode = "lend"; // "lend" or "request"
 
@@ -599,23 +587,19 @@
       renderFeed();
     });
 
-    // Client-Side Search & Filter Renderer
     function renderFeed() {
       const feedContainer = document.getElementById("itemFeed");
       feedContainer.innerHTML = "";
 
       const filtered = allItems.filter(item => {
-        const matchesCategory = (selectedCategory === "All") || 
-          (selectedCategory === "Requests" ? item.type === "request" : item.category === selectedCategory);
-
-        const text = `${item.title || ""} ${item.location || ""} ${item.category || ""} ${item.ownerName || ""}`.toLowerCase();
+        const matchesFilter = (currentFilter === "all") || (item.type === "request");
+        const text = `${item.title || ""} ${item.location || ""} ${item.ownerName || ""}`.toLowerCase();
         const matchesSearch = !searchQuery || text.includes(searchQuery.toLowerCase());
-
-        return matchesCategory && matchesSearch;
+        return matchesFilter && matchesSearch;
       });
 
       if (filtered.length === 0) {
-        feedContainer.innerHTML = `<div class="empty-state">No matching gear or requests found.<br>Tap the + button to post one!</div>`;
+        feedContainer.innerHTML = `<div class="empty-state">Nothing found on campus right now.<br>Tap the + button to share or ask for something!</div>`;
         return;
       }
 
@@ -630,8 +614,7 @@
           <div>
             <div class="item-title">${item.title || "Untitled"}</div>
             <div class="item-sub">
-              📍 ${item.location || "Campus"} • ${isRequest ? "Requested by" : "By"}: <strong>${isOwner ? "You (" + item.ownerName + ")" : (item.ownerName || "Student")}</strong><br>
-              <small style="color:#777;">Category: ${item.category}</small>
+              📍 ${item.location || "Campus"} • ${isRequest ? "Requested by" : "Posted by"}: <strong>${isOwner ? "You (" + item.ownerName + ")" : (item.ownerName || "Student")}</strong>
             </div>
           </div>
           <div class="item-actions">
@@ -656,7 +639,7 @@
             ` : `
               <button class="btn-sm" ${isBorrowed ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''} 
                 onclick="startChatWithLender('${item.id}', '${item.title.replace(/'/g, "\\'")}', '${item.ownerUid}', '${item.ownerName.replace(/'/g, "\\'")}')">
-                ${isBorrowed ? "Closed" : (isRequest ? "I Can Lend This" : "Chat / Borrow")}
+                ${isBorrowed ? "Closed" : (isRequest ? "I Have This" : "Chat / Borrow")}
               </button>
             `}
           </div>
@@ -665,17 +648,16 @@
       });
     }
 
-    // Search input listener
+    // Search and Filter Handlers
     window.handleSearch = function(e) {
       searchQuery = e.target.value.trim();
       renderFeed();
     };
 
-    // Category filter selector
-    window.selectCategory = function(cat, element) {
-      selectedCategory = cat;
-      document.querySelectorAll(".cat-chip").forEach(el => el.classList.remove("active"));
-      element.classList.add("active");
+    window.toggleFilter = function(filter) {
+      currentFilter = filter;
+      document.getElementById("btnFilterAll").classList.toggle("active", filter === "all");
+      document.getElementById("btnFilterReq").classList.toggle("active", filter === "requests");
       renderFeed();
     };
 
@@ -692,23 +674,23 @@
         tabLend.classList.add("active");
         tabReq.classList.remove("active");
         priceContainer.style.display = "block";
-        titleLabel.innerText = "Item Name";
-        document.getElementById("itemTitle").placeholder = "e.g. Casio fx-991, Drafter";
-        submitBtn.innerText = "List Gear Now";
+        titleLabel.innerText = "What are you lending?";
+        document.getElementById("itemTitle").placeholder = "e.g. Casio fx-991, Drafter, Lab Coat";
+        submitBtn.innerText = "Post Item";
       } else {
         tabReq.classList.add("active");
         tabLend.classList.remove("active");
         priceContainer.style.display = "none";
         titleLabel.innerText = "What do you need?";
-        document.getElementById("itemTitle").placeholder = "e.g. Need Lab Coat size M for Physics lab";
-        submitBtn.innerText = "Post Request";
+        document.getElementById("itemTitle").placeholder = "e.g. Need Drafter for EG lab at 2 PM";
+        submitBtn.innerText = "Ask Campus";
       }
     };
 
     window.openFormModal = () => {
-      if (!currentUser) return alert("Please click 'Sign In' at the top right before posting!");
+      if (!currentUser) return alert("Please sign in from the top right before posting!");
       document.getElementById("formModal").style.display = "flex";
-      setFormMode("lend"); // default to lend mode
+      setFormMode("lend");
     };
     window.closeFormModal = () => { document.getElementById("formModal").style.display = "none"; };
 
@@ -716,10 +698,9 @@
       if (!currentUser) return alert("Sign in first!");
       const title = document.getElementById("itemTitle").value.trim();
       const location = document.getElementById("itemLocation").value.trim();
-      const category = document.getElementById("itemCategory").value;
       const price = document.getElementById("itemPrice").value.trim();
 
-      if (!title) return alert("Please fill in the item details.");
+      if (!title) return alert("Please enter what you are lending or requesting.");
 
       const isRequest = (activeFormMode === "request");
       const isFree = !price || price === "0";
@@ -729,7 +710,6 @@
         ownerName: getMyDisplayName(),
         title,
         location: location || "Campus",
-        category,
         type: isRequest ? "request" : "lend",
         isFree: isRequest ? true : isFree,
         price: isRequest ? 0 : (isFree ? 0 : Number(price)),
@@ -750,7 +730,7 @@
     };
 
     window.deleteItem = async (id) => {
-      if (confirm("Delete this listing permanently?")) {
+      if (confirm("Remove this post permanently?")) {
         await deleteDoc(doc(db, "items", id));
       }
     };
@@ -769,7 +749,7 @@
     // 5. Chats & Inbox
     window.openInbox = function() {
       closeDrawer();
-      if (!currentUser) return alert("Please click 'Sign In' at the top right first!");
+      if (!currentUser) return alert("Please sign in from the top right first!");
       document.getElementById("inboxModal").style.display = "flex";
 
       const listEl = document.getElementById("inboxList");
@@ -783,7 +763,7 @@
       onSnapshot(q, (snap) => {
         listEl.innerHTML = "";
         if (snap.empty) {
-          listEl.innerHTML = "<div class='empty-state'>No active chats yet.</div>";
+          listEl.innerHTML = "<div class='empty-state'>No active conversations yet.</div>";
           return;
         }
 
@@ -810,8 +790,8 @@
     window.closeInbox = () => { document.getElementById("inboxModal").style.display = "none"; };
 
     window.startChatWithLender = async function(itemId, itemTitle, lenderUid, lenderName) {
-      if (!currentUser) return alert("Please click 'Sign In' at the top right to chat.");
-      if (currentUser.uid === lenderUid) return alert("This is your own listing/request!");
+      if (!currentUser) return alert("Please sign in to message.");
+      if (currentUser.uid === lenderUid) return alert("This is your own post!");
 
       const myName = getMyDisplayName();
       const convoId = `${itemId}_${currentUser.uid}`;
@@ -838,7 +818,7 @@
       const snap = await getDocs(q);
 
       if (snap.empty) {
-        alert("No inquiries on this listing yet!");
+        alert("No inquiries on this post yet!");
         return;
       }
 
@@ -923,30 +903,23 @@
       </div>
     </header>
 
-    <!-- Search & Filters -->
+    <!-- Search & Feed Filter -->
     <div class="filter-section">
       <input 
         type="text" 
         class="search-input" 
-        placeholder="🔍 Search gear, drafters, calculators..." 
+        placeholder="🔍 Search items on campus..." 
         oninput="handleSearch(event)"
       />
-      <div class="category-scroll">
-        <button class="cat-chip active" onclick="selectCategory('All', this)">All</button>
-        <button class="cat-chip" onclick="selectCategory('Requests', this)">🙋 Requests</button>
-        <button class="cat-chip" onclick="selectCategory('Calculators & Tools', this)">Calculators & Tools</button>
-        <button class="cat-chip" onclick="selectCategory('Lab Equipment / Coats', this)">Lab Equipment</button>
-        <button class="cat-chip" onclick="selectCategory('Textbooks & Notes', this)">Books & Notes</button>
-        <button class="cat-chip" onclick="selectCategory('Electronics & Cables', this)">Electronics</button>
-        <button class="cat-chip" onclick="selectCategory('Sports & Other', this)">Other</button>
-      </div>
+      <button class="view-toggle-btn active" id="btnFilterAll" onclick="toggleFilter('all')">All</button>
+      <button class="view-toggle-btn" id="btnFilterReq" onclick="toggleFilter('requests')">🙋 Requests</button>
     </div>
 
     <!-- Feed -->
     <section class="card">
       <h2>Campus Feed</h2>
       <div id="itemFeed">
-        <div class="empty-state">Loading campus gear...</div>
+        <div class="empty-state">Loading campus items...</div>
       </div>
     </section>
   </div>
@@ -973,7 +946,7 @@
     </div>
   </div>
 
-  <!-- POST MODAL (Lend vs Request inside +) -->
+  <!-- POST MODAL (Lend vs Request) -->
   <div class="modal-backdrop" id="formModal">
     <div class="modal-box">
       <div class="modal-header">
@@ -981,33 +954,23 @@
         <button class="close-btn" onclick="closeFormModal()">✕</button>
       </div>
       <div class="modal-body">
-        <!-- Dual Tabs -->
         <div class="form-tabs">
-          <button type="button" class="form-tab-btn active" id="tabLend" onclick="setFormMode('lend')">📦 Lend Gear</button>
-          <button type="button" class="form-tab-btn" id="tabRequest" onclick="setFormMode('request')">🙋 Request Gear</button>
+          <button type="button" class="form-tab-btn active" id="tabLend" onclick="setFormMode('lend')">📦 Share Item</button>
+          <button type="button" class="form-tab-btn" id="tabRequest" onclick="setFormMode('request')">🙋 Ask Campus</button>
         </div>
 
-        <label for="itemTitle" id="titleLabel">Item Name</label>
-        <input type="text" id="itemTitle" placeholder="e.g. Casio fx-991, Drafter" />
+        <label for="itemTitle" id="titleLabel">What are you lending?</label>
+        <input type="text" id="itemTitle" placeholder="e.g. Casio fx-991, Drafter, Lab Coat" />
 
         <label for="itemLocation">Pickup Point / Hostel</label>
-        <input type="text" id="itemLocation" placeholder="e.g. Library 1st Floor, Hostel 3" />
-
-        <label for="itemCategory">Category</label>
-        <select id="itemCategory">
-          <option>Calculators & Tools</option>
-          <option>Lab Equipment / Coats</option>
-          <option>Textbooks & Notes</option>
-          <option>Electronics & Cables</option>
-          <option>Sports & Other</option>
-        </select>
+        <input type="text" id="itemLocation" placeholder="e.g. Library, Block 2, Canteen" />
 
         <div id="priceFieldContainer">
           <label for="itemPrice">Rent Price (Leave empty for FREE)</label>
           <input type="number" id="itemPrice" placeholder="0 or amount in ₹" />
         </div>
 
-        <button class="btn-primary" id="modalSubmitBtn" onclick="postEntry()">List Gear Now</button>
+        <button class="btn-primary" id="modalSubmitBtn" onclick="postEntry()">Post Item</button>
       </div>
     </div>
   </div>
