@@ -346,6 +346,17 @@
       box-shadow: 0 4px 12px rgba(244, 63, 94, 0.35);
     }
 
+    .btn-admin {
+      background: rgba(239, 68, 68, 0.2) !important;
+      color: #f87171 !important;
+      border-color: #ef4444 !important;
+    }
+
+    .btn-admin:hover {
+      background: #ef4444 !important;
+      color: white !important;
+    }
+
     /* Floating Action Button (+) */
     .fab {
       position: fixed;
@@ -716,6 +727,16 @@
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
 
+    // ⚡ MASTER ADMIN CONFIGURATION: Paste your actual Google email here
+    const ADMIN_EMAIL = "your-email@gmail.com"; 
+
+    // 🚫 CONTENT MODERATION BLACKLIST
+    const BANNED_KEYWORDS = [
+      "cigarette", "smoke", "cigar", "vape", "beedi", "bidi", "weed", "ganja", "cannabis",
+      "alcohol", "beer", "whiskey", "vodka", "liquor", "drugs", "pills", "condom", "sex",
+      "girlfriend", "boyfriend", "gf", "bf", "date", "hookup", "dating", "cheating", "weapon", "knife"
+    ];
+
     let currentUser = null;
     let activeConversationId = null;
     let unsubscribeMessages = null;
@@ -756,7 +777,6 @@
           <button class="btn-signout" onclick="logout()">🚪 Sign Out</button>
         `;
 
-        // Check if user has already accepted Terms of Service
         checkTermsConsent(user);
       } else {
         headerAuth.innerHTML = `
@@ -778,11 +798,9 @@
         if (userDoc.exists() && userDoc.data().termsAccepted) {
           localStorage.setItem("borrowbox_terms_accepted_" + user.uid, "true");
         } else {
-          // Open mandatory terms gate
           document.getElementById("termsModal").style.display = "flex";
         }
       } catch (e) {
-        // Fallback: show terms gate if offline/permission check
         document.getElementById("termsModal").style.display = "flex";
       }
     }
@@ -795,11 +813,8 @@
       }
 
       if (!currentUser) return;
-
-      // Save locally
       localStorage.setItem("borrowbox_terms_accepted_" + currentUser.uid, "true");
 
-      // Stamp in Firestore
       try {
         await setDoc(doc(db, "users", currentUser.uid), {
           uid: currentUser.uid,
@@ -876,6 +891,7 @@
 
       filtered.forEach(item => {
         const isOwner = currentUser && item.ownerUid === currentUser.uid;
+        const isAdmin = currentUser && currentUser.email === ADMIN_EMAIL;
         const isBorrowed = item.status === "borrowed";
         const isRequest = item.type === "request";
 
@@ -897,8 +913,8 @@
               ${isBorrowed ? '<span class="price-pill status-borrowed">RESOLVED</span>' : ''}
             </div>
 
-            ${isOwner ? `
-              <div style="display:flex; gap:6px; margin-top:2px;">
+            <div style="display:flex; gap:6px; margin-top:2px;">
+              ${isOwner ? `
                 <button class="btn-action" onclick="openOwnerItemChats('${item.id}', '${item.title.replace(/'/g, "\\'")}')">
                   💬 Inquiries
                 </button>
@@ -906,13 +922,18 @@
                   ${isBorrowed ? (isRequest ? "Reopen" : "Available") : (isRequest ? "Mark Fulfilled" : "Borrowed")}
                 </button>
                 <button class="btn-action btn-danger" onclick="deleteItem('${item.id}')">✕</button>
-              </div>
-            ` : `
-              <button class="btn-action" ${isBorrowed ? 'disabled style="opacity:0.35;cursor:not-allowed;"' : ''} 
-                onclick="startChatWithLender('${item.id}', '${item.title.replace(/'/g, "\\'")}', '${item.ownerUid}', '${item.ownerName.replace(/'/g, "\\'")}')">
-                ${isBorrowed ? "Closed" : (isRequest ? "I Have This" : "Chat / Borrow")}
-              </button>
-            `}
+              ` : `
+                <button class="btn-action" ${isBorrowed ? 'disabled style="opacity:0.35;cursor:not-allowed;"' : ''} 
+                  onclick="startChatWithLender('${item.id}', '${item.title.replace(/'/g, "\\'")}', '${item.ownerUid}', '${item.ownerName.replace(/'/g, "\\'")}')">
+                  ${isBorrowed ? "Closed" : (isRequest ? "I Have This" : "Chat / Borrow")}
+                </button>
+                <button class="btn-action" title="Report inappropriate post" onclick="reportItem('${item.id}')">🚩</button>
+              `}
+              
+              ${isAdmin && !isOwner ? `
+                <button class="btn-action btn-admin" title="Admin Delete" onclick="deleteItem('${item.id}', true)">⚡ Admin Delete</button>
+              ` : ''}
+            </div>
           </div>
         `;
         feedContainer.appendChild(div);
@@ -931,7 +952,7 @@
       renderFeed();
     };
 
-    // 3. Modal Form: Dual-Mode Tabs (Lend vs Request)
+    // 3. Modal Form: Moderation + Submission
     window.setFormMode = function(mode) {
       activeFormMode = mode;
       const tabLend = document.getElementById("tabLend");
@@ -959,7 +980,6 @@
 
     window.openFormModal = () => {
       if (!currentUser) return alert("Please sign in from the top right before posting!");
-      // Double check terms
       if (localStorage.getItem("borrowbox_terms_accepted_" + currentUser.uid) !== "true") {
         document.getElementById("termsModal").style.display = "flex";
         return;
@@ -977,6 +997,18 @@
 
       if (!title) return alert("Please enter what you are lending or requesting.");
 
+      // 🛡️ Content Moderation Filter Check
+      const fullText = (title + " " + location).toLowerCase();
+      const violatedWord = BANNED_KEYWORDS.find(word => {
+        const regex = new RegExp(`\\b${word}\\b`, "i");
+        return regex.test(fullText);
+      });
+
+      if (violatedWord) {
+        alert("⚠️ Prohibited content detected. Listings for tobacco, substances, dating, weapons, or illegal stuff are strictly forbidden on BorrowBox.");
+        return;
+      }
+
       const isRequest = (activeFormMode === "request");
       const isFree = !price || price === "0";
 
@@ -989,6 +1021,7 @@
         isFree: isRequest ? true : isFree,
         price: isRequest ? 0 : (isFree ? 0 : Number(price)),
         status: "available",
+        reportCount: 0,
         createdAt: serverTimestamp()
       });
 
@@ -1004,13 +1037,37 @@
       });
     };
 
-    window.deleteItem = async (id) => {
-      if (confirm("Remove this post permanently?")) {
+    window.deleteItem = async (id, isAdminAction = false) => {
+      const msg = isAdminAction ? "⚡ [ADMIN] Remove this post immediately from campus feed?" : "Remove this post permanently?";
+      if (confirm(msg)) {
         await deleteDoc(doc(db, "items", id));
       }
     };
 
-    // 4. Drawer Navigation
+    // 🚩 Community Report Handler
+    window.reportItem = async (itemId) => {
+      if (!currentUser) return alert("Please sign in to report items.");
+      if (confirm("Report this post as inappropriate or violating campus rules?")) {
+        try {
+          const itemRef = doc(db, "items", itemId);
+          const snap = await getDoc(itemRef);
+          if (!snap.exists()) return;
+
+          const currentReports = (snap.data().reportCount || 0) + 1;
+          if (currentReports >= 3) {
+            await deleteDoc(itemRef);
+            alert("Post auto-removed due to multiple community reports.");
+          } else {
+            await updateDoc(itemRef, { reportCount: currentReports });
+            alert("Thank you. Post flagged for moderation.");
+          }
+        } catch (err) {
+          alert("Error reporting: " + err.message);
+        }
+      }
+    };
+
+    // 4. Drawer & History
     window.openDrawer = () => {
       document.getElementById("drawer").classList.add("open");
       document.getElementById("drawerOverlay").style.display = "block";
@@ -1020,6 +1077,43 @@
       document.getElementById("drawer").classList.remove("open");
       document.getElementById("drawerOverlay").style.display = "none";
     };
+
+    window.openHistory = function() {
+      closeDrawer();
+      if (!currentUser) return alert("Sign in first to view history!");
+      document.getElementById("historyModal").style.display = "flex";
+
+      const listEl = document.getElementById("historyList");
+      listEl.innerHTML = "";
+
+      const myPosts = allItems.filter(item => item.ownerUid === currentUser.uid);
+
+      if (myPosts.length === 0) {
+        listEl.innerHTML = "<div class='empty-state'>You haven't posted or requested any items yet.</div>";
+        return;
+      }
+
+      myPosts.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "inbox-card";
+        const isResolved = item.status === "borrowed";
+        const isRequest = item.type === "request";
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="inbox-item-title">${item.title}</div>
+            <span class="price-pill ${isResolved ? 'status-borrowed' : 'price-free'}">
+              ${isResolved ? 'RESOLVED' : 'ACTIVE'}
+            </span>
+          </div>
+          <div class="inbox-item-sub">
+            ${isRequest ? '🙋 Campus Request' : '📦 Shared Item'} • ${item.isFree ? 'FREE' : '₹' + item.price} • 📍 ${item.location}
+          </div>
+        `;
+        listEl.appendChild(card);
+      });
+    };
+
+    window.closeHistory = () => { document.getElementById("historyModal").style.display = "none"; };
 
     // 5. Chats & Inbox
     window.openInbox = function() {
@@ -1209,11 +1303,12 @@
         <div class="empty-state">Loading campus items...</div>
       </div>
     </section>
+
     <!-- Permanent Campus Disclaimer -->
     <footer style="text-align: center; padding: 20px 10px 10px; font-size: 0.75rem; color: var(--text-muted); line-height: 1.5; border-top: 1px solid var(--surface-border); margin-top: 10px;">
-      <p>⚠️ <strong>Disclaimer:</strong> BorrowBox is a student directory. We do not own, inspect, or insure listed items and are not responsible for any damage, loss, non-return, or transaction disputes. Lend & borrow at your own risk.</p>
+      <p>⚠️ <strong>Disclaimer:</strong> BorrowBox is a student directory. We do not own, inspect, or insure listed items and are not responsible for any damage, loss, non-return, or transaction disputes. Lend &amp; borrow at your own risk.</p>
     </footer>
-  </div> <!-- closes app-wrapper -->
+  </div>
 
   <!-- FLOATING ACTION BUTTON (+) -->
   <button class="fab" onclick="openFormModal()">+</button>
@@ -1233,7 +1328,8 @@
       </div>
 
       <button onclick="openInbox()">💬 My Conversations</button>
-      <button onclick="openTermsReview()">📜 Terms & Safety</button>
+      <button onclick="openHistory()">📜 My Activity &amp; History</button>
+      <button onclick="openTermsReview()">⚖️ Terms &amp; Safety</button>
       
       <div id="drawerAuthSection" style="margin-top:10px;"></div>
     </div>
@@ -1279,12 +1375,26 @@
     </div>
   </div>
 
+  <!-- HISTORY MODAL -->
+  <div class="modal-backdrop" id="historyModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <strong style="font-size:1.05rem;">My Activity &amp; History</strong>
+        <button class="close-btn" onclick="closeHistory()">✕</button>
+      </div>
+      <div class="modal-body" id="historyList"></div>
+    </div>
+  </div>
+
   <!-- CHAT MODAL -->
   <div class="modal-backdrop" id="chatModal">
     <div class="modal-box">
       <div class="modal-header">
         <strong id="chatItemTitle" style="font-size:0.95rem;">Chat</strong>
         <button class="close-btn" onclick="closeChat()">✕</button>
+      </div>
+      <div style="background: rgba(244, 63, 94, 0.08); border-bottom: 1px solid rgba(244, 63, 94, 0.2); padding: 8px 14px; font-size: 0.74rem; color: #fca5a5; line-height: 1.4;">
+        🛡️ Verify item condition &amp; return timing directly with each other. BorrowBox is not liable for lost or damaged items.
       </div>
       <div class="chat-messages" id="chatMessages"></div>
       <form class="chat-form" onsubmit="sendMessage(event)">
@@ -1298,7 +1408,7 @@
   <div class="modal-backdrop" id="termsModal">
     <div class="modal-box">
       <div class="modal-header">
-        <strong style="font-size:1.05rem;">Campus Safety & Lending Terms</strong>
+        <strong style="font-size:1.05rem;">Campus Safety &amp; Lending Terms</strong>
       </div>
       <div class="modal-body">
         <div class="terms-text-box">
@@ -1312,7 +1422,7 @@
           <input type="checkbox" id="termsCheckbox" />
           <span>I understand and agree to lend and borrow responsibly at my own risk.</span>
         </label>
-        <button class="btn-primary" onclick="agreeToTerms()">I Agree & Continue</button>
+        <button class="btn-primary" onclick="agreeToTerms()">I Agree &amp; Continue</button>
       </div>
     </div>
   </div>
@@ -1321,13 +1431,13 @@
   <div class="modal-backdrop" id="termsReviewModal">
     <div class="modal-box">
       <div class="modal-header">
-        <strong style="font-size:1.05rem;">Terms & Safety Policy</strong>
+        <strong style="font-size:1.05rem;">Terms &amp; Safety Policy</strong>
         <button class="close-btn" onclick="closeTermsReview()">✕</button>
       </div>
       <div class="modal-body">
         <div class="terms-text-box">
           <p><strong>1. Role of BorrowBox</strong><br>BorrowBox operates as an intermediary peer-to-peer directory under applicable IT Guidelines. We do not manufacture, inspect, own, or store any physical items.</p>
-          <p><strong>2. Bailment & Responsibility</strong><br>All arrangements regarding item handover, duration, return condition, and care are mutual agreements solely between the lender and borrower.</p>
+          <p><strong>2. Bailment &amp; Responsibility</strong><br>All arrangements regarding item handover, duration, return condition, and care are mutual agreements solely between the lender and borrower.</p>
           <p><strong>3. Content Removal</strong><br>Any listing reported for violating campus policy or student safety will be removed immediately without prior notice.</p>
           <p><strong>4. Privacy</strong><br>Your public campus handle is shown to peers when listing or inquiring. We do not sell or share user data with third-party marketers.</p>
         </div>
