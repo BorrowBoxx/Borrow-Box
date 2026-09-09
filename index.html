@@ -15,6 +15,7 @@
       --text: #ffffff;
       --text-muted: #a0a0a0;
       --free-badge: #00e676;
+      --req-badge: #b388ff;
       --danger: #ff5252;
     }
 
@@ -71,7 +72,6 @@
       letter-spacing: -0.5px;
     }
 
-    /* Outer Sign In Button in Header */
     .header-right {
       display: flex;
       align-items: center;
@@ -107,6 +107,54 @@
       gap: 6px;
     }
 
+    /* Search & Filter Section */
+    .filter-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+
+    .search-input:focus { outline: 2px solid var(--primary); }
+
+    .category-scroll {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+
+    .category-scroll::-webkit-scrollbar { display: none; }
+
+    .cat-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 99px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .cat-chip.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -119,38 +167,6 @@
       margin-bottom: 14px;
       font-weight: 600;
     }
-
-    label {
-      display: block;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-      margin-top: 10px;
-    }
-
-    label:first-of-type { margin-top: 0; }
-
-    input, select, button {
-      width: 100%;
-      padding: 11px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: #252525;
-      color: var(--text);
-      font-size: 0.95rem;
-    }
-
-    input:focus, select:focus { outline: 2px solid var(--primary); }
-
-    .btn-primary {
-      margin-top: 16px;
-      background: var(--primary);
-      border: none;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .btn-primary:hover { background: var(--primary-hover); }
 
     /* Feed Items */
     .item-card {
@@ -181,13 +197,13 @@
       flex-direction: column;
       align-items: flex-end;
       gap: 6px;
-      min-width: 120px;
+      min-width: 125px;
     }
 
-    .pill-group { display: flex; gap: 6px; }
+    .pill-group { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 
     .price-pill {
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 700;
       padding: 3px 8px;
       border-radius: 6px;
@@ -196,6 +212,7 @@
 
     .price-free { background: rgba(0, 230, 118, 0.15); color: var(--free-badge); }
     .price-paid { background: rgba(41, 121, 255, 0.15); color: var(--primary); }
+    .type-request { background: rgba(179, 136, 255, 0.18); color: var(--req-badge); }
     .status-borrowed { background: rgba(117, 117, 117, 0.3); color: #ccc; }
 
     .btn-sm {
@@ -207,6 +224,7 @@
       width: auto;
       cursor: pointer;
       border-radius: 6px;
+      color: var(--text);
     }
 
     .btn-sm:hover { background: var(--primary); border-color: var(--primary); }
@@ -351,7 +369,7 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      max-height: 85vh;
+      max-height: 88vh;
     }
 
     .modal-header {
@@ -372,6 +390,66 @@
       padding: 16px;
       overflow-y: auto;
     }
+
+    /* Modal Form Segmented Tabs (Lend vs Request) */
+    .form-tabs {
+      display: flex;
+      background: #252525;
+      border-radius: 8px;
+      padding: 3px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+    }
+
+    .form-tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 0;
+      font-size: 0.88rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .form-tab-btn.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      margin-top: 10px;
+    }
+
+    label:first-of-type { margin-top: 0; }
+
+    input, select, .btn-primary {
+      width: 100%;
+      padding: 11px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #252525;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+
+    input:focus, select:focus { outline: 2px solid var(--primary); }
+
+    .btn-primary {
+      margin-top: 16px;
+      background: var(--primary);
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover { background: var(--primary-hover); }
 
     .inbox-card {
       background: var(--surface);
@@ -438,13 +516,19 @@
     let activeConversationId = null;
     let unsubscribeMessages = null;
 
+    // In-memory feed cache for client-side search/filtering
+    let allItems = [];
+    let selectedCategory = "All";
+    let searchQuery = "";
+    let activeFormMode = "lend"; // "lend" or "request"
+
     function getMyDisplayName() {
       const saved = localStorage.getItem("borrowbox_custom_name");
       if (saved && saved.trim()) return saved.trim();
       return currentUser ? (currentUser.displayName || currentUser.email.split("@")[0]) : "Student";
     }
 
-    // 1. Auth Listener: Sign In stays OUTSIDE in the header; Sign Out stays INSIDE the drawer
+    // 1. Auth Listener
     onAuthStateChanged(auth, (user) => {
       currentUser = user;
       const headerAuth = document.getElementById("headerAuthSection");
@@ -456,14 +540,12 @@
           localStorage.setItem("borrowbox_custom_name", user.displayName || user.email.split("@")[0]);
         }
 
-        // Header shows small profile pill that opens the menu
         headerAuth.innerHTML = `
           <div class="user-pill-header" onclick="openDrawer()">
             👤 ${getMyDisplayName().split(" ")[0]}
           </div>
         `;
 
-        // Inside Drawer: Name editor and Sign Out
         profileSection.style.display = "flex";
         document.getElementById("customNameInput").value = getMyDisplayName();
 
@@ -471,15 +553,13 @@
           <button class="btn-signout" onclick="logout()">🚪 Sign Out</button>
         `;
       } else {
-        // Outside Header: Direct Sign In Button
         headerAuth.innerHTML = `
           <button class="btn-header-auth" onclick="login()">Sign In</button>
         `;
-
-        // Inside Drawer: Clean empty state
         profileSection.style.display = "none";
         drawerAuth.innerHTML = ``;
       }
+      renderFeed();
     });
 
     window.saveCustomName = function() {
@@ -495,6 +575,7 @@
           </div>
         `;
       }
+      renderFeed();
     };
 
     window.login = async () => {
@@ -508,22 +589,40 @@
       closeDrawer();
     };
 
-    // 2. Real-Time Feed
-    const feedContainer = document.getElementById("itemFeed");
+    // 2. Real-Time Feed Listener
     const qItems = query(collection(db, "items"), orderBy("createdAt", "desc"));
-
     onSnapshot(qItems, (snapshot) => {
+      allItems = [];
+      snapshot.forEach(docSnap => {
+        allItems.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      renderFeed();
+    });
+
+    // Client-Side Search & Filter Renderer
+    function renderFeed() {
+      const feedContainer = document.getElementById("itemFeed");
       feedContainer.innerHTML = "";
-      if (snapshot.empty) {
-        feedContainer.innerHTML = `<div class="empty-state">No gear listed yet.<br>Tap the + button to add the first item!</div>`;
+
+      const filtered = allItems.filter(item => {
+        const matchesCategory = (selectedCategory === "All") || 
+          (selectedCategory === "Requests" ? item.type === "request" : item.category === selectedCategory);
+
+        const text = `${item.title || ""} ${item.location || ""} ${item.category || ""} ${item.ownerName || ""}`.toLowerCase();
+        const matchesSearch = !searchQuery || text.includes(searchQuery.toLowerCase());
+
+        return matchesCategory && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        feedContainer.innerHTML = `<div class="empty-state">No matching gear or requests found.<br>Tap the + button to post one!</div>`;
         return;
       }
 
-      snapshot.forEach((docSnap) => {
-        const item = docSnap.data();
-        const id = docSnap.id;
+      filtered.forEach(item => {
         const isOwner = currentUser && item.ownerUid === currentUser.uid;
         const isBorrowed = item.status === "borrowed";
+        const isRequest = item.type === "request";
 
         const div = document.createElement("div");
         div.className = "item-card";
@@ -531,65 +630,109 @@
           <div>
             <div class="item-title">${item.title || "Untitled"}</div>
             <div class="item-sub">
-              📍 ${item.location || "Campus"} • By: <strong>${isOwner ? "You (" + item.ownerName + ")" : (item.ownerName || "Student")}</strong><br>
+              📍 ${item.location || "Campus"} • ${isRequest ? "Requested by" : "By"}: <strong>${isOwner ? "You (" + item.ownerName + ")" : (item.ownerName || "Student")}</strong><br>
               <small style="color:#777;">Category: ${item.category}</small>
             </div>
           </div>
           <div class="item-actions">
             <div class="pill-group">
-              <span class="price-pill ${item.isFree ? 'price-free' : 'price-paid'}">
-                ${item.isFree ? "FREE" : "₹" + item.price}
-              </span>
-              ${isBorrowed ? '<span class="price-pill status-borrowed">BORROWED</span>' : ''}
+              ${isRequest 
+                ? '<span class="price-pill type-request">REQUEST</span>' 
+                : `<span class="price-pill ${item.isFree ? 'price-free' : 'price-paid'}">${item.isFree ? "FREE" : "₹" + item.price}</span>`
+              }
+              ${isBorrowed ? '<span class="price-pill status-borrowed">RESOLVED</span>' : ''}
             </div>
 
             ${isOwner ? `
               <div style="display:flex; gap:4px; margin-top:4px;">
-                <button class="btn-sm" onclick="openOwnerItemChats('${id}', '${item.title.replace(/'/g, "\\'")}')">
+                <button class="btn-sm" onclick="openOwnerItemChats('${item.id}', '${item.title.replace(/'/g, "\\'")}')">
                   💬 Inquiries
                 </button>
-                <button class="btn-sm" onclick="toggleBorrowed('${id}', ${isBorrowed})">
-                  ${isBorrowed ? "Available" : "Borrowed"}
+                <button class="btn-sm" onclick="toggleBorrowed('${item.id}', ${isBorrowed})">
+                  ${isBorrowed ? (isRequest ? "Reopen" : "Available") : (isRequest ? "Mark Fulfilled" : "Borrowed")}
                 </button>
-                <button class="btn-sm btn-danger" onclick="deleteItem('${id}')">✕</button>
+                <button class="btn-sm btn-danger" onclick="deleteItem('${item.id}')">✕</button>
               </div>
             ` : `
               <button class="btn-sm" ${isBorrowed ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''} 
-                onclick="startChatWithLender('${id}', '${item.title.replace(/'/g, "\\'")}', '${item.ownerUid}', '${item.ownerName.replace(/'/g, "\\'")}')">
-                ${isBorrowed ? "Unavailable" : "Chat / Borrow"}
+                onclick="startChatWithLender('${item.id}', '${item.title.replace(/'/g, "\\'")}', '${item.ownerUid}', '${item.ownerName.replace(/'/g, "\\'")}')">
+                ${isBorrowed ? "Closed" : (isRequest ? "I Can Lend This" : "Chat / Borrow")}
               </button>
             `}
           </div>
         `;
         feedContainer.appendChild(div);
       });
-    });
+    }
 
-    // 3. FAB & Modal
+    // Search input listener
+    window.handleSearch = function(e) {
+      searchQuery = e.target.value.trim();
+      renderFeed();
+    };
+
+    // Category filter selector
+    window.selectCategory = function(cat, element) {
+      selectedCategory = cat;
+      document.querySelectorAll(".cat-chip").forEach(el => el.classList.remove("active"));
+      element.classList.add("active");
+      renderFeed();
+    };
+
+    // 3. Modal Form: Dual-Mode Tabs (Lend vs Request)
+    window.setFormMode = function(mode) {
+      activeFormMode = mode;
+      const tabLend = document.getElementById("tabLend");
+      const tabReq = document.getElementById("tabRequest");
+      const priceContainer = document.getElementById("priceFieldContainer");
+      const submitBtn = document.getElementById("modalSubmitBtn");
+      const titleLabel = document.getElementById("titleLabel");
+
+      if (mode === "lend") {
+        tabLend.classList.add("active");
+        tabReq.classList.remove("active");
+        priceContainer.style.display = "block";
+        titleLabel.innerText = "Item Name";
+        document.getElementById("itemTitle").placeholder = "e.g. Casio fx-991, Drafter";
+        submitBtn.innerText = "List Gear Now";
+      } else {
+        tabReq.classList.add("active");
+        tabLend.classList.remove("active");
+        priceContainer.style.display = "none";
+        titleLabel.innerText = "What do you need?";
+        document.getElementById("itemTitle").placeholder = "e.g. Need Lab Coat size M for Physics lab";
+        submitBtn.innerText = "Post Request";
+      }
+    };
+
     window.openFormModal = () => {
-      if (!currentUser) return alert("Please click 'Sign In' at the top right before listing gear!");
+      if (!currentUser) return alert("Please click 'Sign In' at the top right before posting!");
       document.getElementById("formModal").style.display = "flex";
+      setFormMode("lend"); // default to lend mode
     };
     window.closeFormModal = () => { document.getElementById("formModal").style.display = "none"; };
 
-    window.listItem = async function() {
+    window.postEntry = async function() {
       if (!currentUser) return alert("Sign in first!");
       const title = document.getElementById("itemTitle").value.trim();
       const location = document.getElementById("itemLocation").value.trim();
       const category = document.getElementById("itemCategory").value;
       const price = document.getElementById("itemPrice").value.trim();
 
-      if (!title) return alert("Enter item name.");
+      if (!title) return alert("Please fill in the item details.");
 
+      const isRequest = (activeFormMode === "request");
       const isFree = !price || price === "0";
+
       await addDoc(collection(db, "items"), {
         ownerUid: currentUser.uid,
         ownerName: getMyDisplayName(),
         title,
         location: location || "Campus",
         category,
-        isFree,
-        price: isFree ? 0 : Number(price),
+        type: isRequest ? "request" : "lend",
+        isFree: isRequest ? true : isFree,
+        price: isRequest ? 0 : (isFree ? 0 : Number(price)),
         status: "available",
         createdAt: serverTimestamp()
       });
@@ -657,7 +800,7 @@
           };
           card.innerHTML = `
             <div class="inbox-item-title">${c.itemTitle}</div>
-            <div class="inbox-item-sub">${isLender ? 'Inquiry from' : 'Lender'}: <strong>${otherPerson}</strong></div>
+            <div class="inbox-item-sub">${isLender ? 'Inquiry from' : 'Sender'}: <strong>${otherPerson}</strong></div>
           `;
           listEl.appendChild(card);
         });
@@ -668,7 +811,7 @@
 
     window.startChatWithLender = async function(itemId, itemTitle, lenderUid, lenderName) {
       if (!currentUser) return alert("Please click 'Sign In' at the top right to chat.");
-      if (currentUser.uid === lenderUid) return alert("This is your own listing!");
+      if (currentUser.uid === lenderUid) return alert("This is your own listing/request!");
 
       const myName = getMyDisplayName();
       const convoId = `${itemId}_${currentUser.uid}`;
@@ -683,7 +826,7 @@
         lastUpdated: serverTimestamp()
       }, { merge: true });
 
-      openChatWindow(convoId, `${itemTitle} (Lender: ${lenderName})`);
+      openChatWindow(convoId, `${itemTitle} (with ${lenderName})`);
     };
 
     window.openOwnerItemChats = async function(itemId, itemTitle) {
@@ -695,7 +838,7 @@
       const snap = await getDocs(q);
 
       if (snap.empty) {
-        alert("No one has messaged about this item yet!");
+        alert("No inquiries on this listing yet!");
         return;
       }
 
@@ -721,7 +864,7 @@
       unsubscribeMessages = onSnapshot(q, (snap) => {
         messagesBox.innerHTML = "";
         if (snap.empty) {
-          messagesBox.innerHTML = "<div style='color:#777; font-size:0.85rem;'>No messages yet. Send a message to start!</div>";
+          messagesBox.innerHTML = "<div style='color:#777; font-size:0.85rem;'>No messages yet. Say hello!</div>";
           return;
         }
 
@@ -769,21 +912,39 @@
 </head>
 <body>
   <div class="app-wrapper">
-    <!-- Top Header -->
+    <!-- Header -->
     <header>
       <div class="header-left">
         <button class="menu-btn" onclick="openDrawer()">☰</button>
         <h1>BorrowBox</h1>
       </div>
-      <!-- Out of the lines: Sign In lives right here -->
       <div class="header-right" id="headerAuthSection">
         <button class="btn-header-auth" onclick="login()">Sign In</button>
       </div>
     </header>
 
-    <!-- Main Feed -->
+    <!-- Search & Filters -->
+    <div class="filter-section">
+      <input 
+        type="text" 
+        class="search-input" 
+        placeholder="🔍 Search gear, drafters, calculators..." 
+        oninput="handleSearch(event)"
+      />
+      <div class="category-scroll">
+        <button class="cat-chip active" onclick="selectCategory('All', this)">All</button>
+        <button class="cat-chip" onclick="selectCategory('Requests', this)">🙋 Requests</button>
+        <button class="cat-chip" onclick="selectCategory('Calculators & Tools', this)">Calculators & Tools</button>
+        <button class="cat-chip" onclick="selectCategory('Lab Equipment / Coats', this)">Lab Equipment</button>
+        <button class="cat-chip" onclick="selectCategory('Textbooks & Notes', this)">Books & Notes</button>
+        <button class="cat-chip" onclick="selectCategory('Electronics & Cables', this)">Electronics</button>
+        <button class="cat-chip" onclick="selectCategory('Sports & Other', this)">Other</button>
+      </div>
+    </div>
+
+    <!-- Feed -->
     <section class="card">
-      <h2>Available on Campus</h2>
+      <h2>Campus Feed</h2>
       <div id="itemFeed">
         <div class="empty-state">Loading campus gear...</div>
       </div>
@@ -801,7 +962,6 @@
       <button class="close-btn" onclick="closeDrawer()">✕</button>
     </div>
     <div class="drawer-nav">
-      <!-- Profile Display Name Section -->
       <div id="profileSection" class="profile-box" style="display:none;">
         <label for="customNameInput" style="font-size:0.75rem; color:var(--text-muted);">Your Display Name</label>
         <input type="text" id="customNameInput" placeholder="e.g. Sasi, Rahul" />
@@ -809,25 +969,29 @@
       </div>
 
       <button onclick="openInbox()">💬 My Chats</button>
-      
-      <!-- Inside the lines: Sign Out lives here -->
       <div id="drawerAuthSection" style="margin-top:10px;"></div>
     </div>
   </div>
 
-  <!-- LIST GEAR MODAL (Opened by +) -->
+  <!-- POST MODAL (Lend vs Request inside +) -->
   <div class="modal-backdrop" id="formModal">
     <div class="modal-box">
       <div class="modal-header">
-        <strong>List Gear to Lend</strong>
+        <strong>Create a Post</strong>
         <button class="close-btn" onclick="closeFormModal()">✕</button>
       </div>
       <div class="modal-body">
-        <label for="itemTitle">Item Name</label>
-        <input type="text" id="itemTitle" placeholder="e.g. Casio Calculator, Drafter" />
+        <!-- Dual Tabs -->
+        <div class="form-tabs">
+          <button type="button" class="form-tab-btn active" id="tabLend" onclick="setFormMode('lend')">📦 Lend Gear</button>
+          <button type="button" class="form-tab-btn" id="tabRequest" onclick="setFormMode('request')">🙋 Request Gear</button>
+        </div>
 
-        <label for="itemLocation">Pickup Point</label>
-        <input type="text" id="itemLocation" placeholder="e.g. Library 1st Floor, Canteen" />
+        <label for="itemTitle" id="titleLabel">Item Name</label>
+        <input type="text" id="itemTitle" placeholder="e.g. Casio fx-991, Drafter" />
+
+        <label for="itemLocation">Pickup Point / Hostel</label>
+        <input type="text" id="itemLocation" placeholder="e.g. Library 1st Floor, Hostel 3" />
 
         <label for="itemCategory">Category</label>
         <select id="itemCategory">
@@ -838,10 +1002,12 @@
           <option>Sports & Other</option>
         </select>
 
-        <label for="itemPrice">Rent Price (Leave empty for FREE)</label>
-        <input type="number" id="itemPrice" placeholder="0 or amount in ₹" />
+        <div id="priceFieldContainer">
+          <label for="itemPrice">Rent Price (Leave empty for FREE)</label>
+          <input type="number" id="itemPrice" placeholder="0 or amount in ₹" />
+        </div>
 
-        <button class="btn-primary" onclick="listItem()">List Gear Now</button>
+        <button class="btn-primary" id="modalSubmitBtn" onclick="postEntry()">List Gear Now</button>
       </div>
     </div>
   </div>
