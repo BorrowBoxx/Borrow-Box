@@ -16,7 +16,6 @@
       --text-muted: #a0a0a0;
       --free-badge: #00e676;
       --danger: #ff5252;
-      --borrowed: #757575;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -67,13 +66,27 @@
       cursor: pointer;
       font-size: 0.85rem;
       font-weight: 600;
+    }
+
+    .btn-auth:hover { border-color: var(--primary); }
+
+    .btn-chats-nav {
+      background: #1e1e1e;
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      padding: 7px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
       display: flex;
       align-items: center;
       gap: 6px;
     }
 
-    .btn-auth:hover {
-      border-color: var(--primary);
+    .btn-chats-nav:hover {
+      background: var(--primary);
+      color: white;
     }
 
     .main-grid {
@@ -125,9 +138,7 @@
       font-size: 0.95rem;
     }
 
-    input:focus, select:focus {
-      outline: 2px solid var(--primary);
-    }
+    input:focus, select:focus { outline: 2px solid var(--primary); }
 
     .btn-primary {
       margin-top: 16px;
@@ -170,10 +181,7 @@
       min-width: 130px;
     }
 
-    .pill-group {
-      display: flex;
-      gap: 6px;
-    }
+    .pill-group { display: flex; gap: 6px; }
 
     .price-pill {
       font-size: 0.8rem;
@@ -202,8 +210,8 @@
     .btn-danger { color: var(--danger); border-color: rgba(255,82,82,0.4); }
     .btn-danger:hover { background: var(--danger); color: white; }
 
-    /* Modal / Drawer */
-    .chat-modal {
+    /* Modals */
+    .chat-modal, .inbox-modal {
       display: none;
       position: fixed;
       bottom: 20px;
@@ -219,7 +227,7 @@
       overflow: hidden;
     }
 
-    .chat-header {
+    .modal-header {
       background: var(--surface);
       padding: 12px 16px;
       border-bottom: 1px solid var(--border);
@@ -232,6 +240,25 @@
       background: none; border: none; color: var(--text-muted);
       font-size: 1.2rem; cursor: pointer; width: auto; padding: 0 4px;
     }
+
+    .inbox-list {
+      flex: 1; overflow-y: auto; padding: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .inbox-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .inbox-card:hover { border-color: var(--primary); background: var(--surface-hover); }
+
+    .inbox-item-title { font-weight: 600; font-size: 0.95rem; color: var(--primary); margin-bottom: 4px; }
+    .inbox-item-sub { font-size: 0.8rem; color: var(--text-muted); }
 
     .chat-messages {
       flex: 1; overflow-y: auto; padding: 14px;
@@ -253,9 +280,7 @@
     .chat-form input { margin: 0; padding: 9px 12px; font-size: 0.88rem; }
     .chat-form button { margin: 0; width: auto; padding: 9px 16px; }
 
-    .empty-state {
-      text-align: center; color: var(--text-muted); padding: 36px 0; font-size: 0.95rem;
-    }
+    .empty-state { text-align: center; color: var(--text-muted); padding: 36px 0; font-size: 0.95rem; }
   </style>
 
   <script type="module">
@@ -265,7 +290,7 @@
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { 
       getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, 
-      doc, updateDoc, deleteDoc 
+      doc, updateDoc, deleteDoc, where, getDocs
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -283,8 +308,8 @@
     const provider = new GoogleAuthProvider();
 
     let currentUser = null;
-    let activeItemId = null;
-    let unsubscribeChat = null;
+    let activeConversationId = null;
+    let unsubscribeMessages = null;
 
     // 1. Auth Listener
     onAuthStateChanged(auth, (user) => {
@@ -294,6 +319,7 @@
 
       if (user) {
         authArea.innerHTML = `
+          <button class="btn-chats-nav" onclick="openInbox()">💬 My Chats</button>
           <span style="font-size:0.85rem;">👋 ${user.displayName.split(" ")[0]}</span>
           <button class="btn-auth" onclick="logout()">Sign Out</button>
         `;
@@ -309,24 +335,20 @@
     });
 
     window.login = async () => {
-      try {
-        await signInWithPopup(auth, provider);
-      } catch (err) {
-        alert("Login failed: " + err.message);
-      }
+      try { await signInWithPopup(auth, provider); }
+      catch (err) { alert("Login failed: " + err.message); }
     };
 
     window.logout = () => signOut(auth);
 
-    // 2. Real-Time Gear Feed
+    // 2. Real-Time Feed
     const feedContainer = document.getElementById("itemFeed");
     const qItems = query(collection(db, "items"), orderBy("createdAt", "desc"));
 
     onSnapshot(qItems, (snapshot) => {
       feedContainer.innerHTML = "";
-
       if (snapshot.empty) {
-        feedContainer.innerHTML = `<div class="empty-state">No gear listed yet.<br>List the first item on the left!</div>`;
+        feedContainer.innerHTML = `<div class="empty-state">No gear listed yet.<br>List an item on the left!</div>`;
         return;
       }
 
@@ -356,14 +378,17 @@
 
             ${isOwner ? `
               <div style="display:flex; gap:4px; margin-top:4px;">
+                <button class="btn-sm" onclick="openOwnerItemChats('${id}', '${item.title.replace(/'/g, "\\'")}')">
+                  💬 Inquiries
+                </button>
                 <button class="btn-sm" onclick="toggleBorrowed('${id}', ${isBorrowed})">
-                  ${isBorrowed ? "Mark Free" : "Mark Borrowed"}
+                  ${isBorrowed ? "Available" : "Borrowed"}
                 </button>
                 <button class="btn-sm btn-danger" onclick="deleteItem('${id}')">✕</button>
               </div>
             ` : `
               <button class="btn-sm" ${isBorrowed ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''} 
-                onclick="openChat('${id}', '${item.title.replace(/'/g, "\\'")}')">
+                onclick="startChatWithLender('${id}', '${item.title.replace(/'/g, "\\'")}', '${item.ownerUid}', '${item.ownerName}')">
                 ${isBorrowed ? "Unavailable" : "Chat / Borrow"}
               </button>
             `}
@@ -373,21 +398,15 @@
       });
     });
 
-    // 3. List Item (Requires Sign-In)
+    // 3. List Item
     window.listItem = async function() {
-      if (!currentUser) return alert("Please sign in first!");
+      if (!currentUser) return alert("Sign in first!");
+      const title = document.getElementById("itemTitle").value.trim();
+      const location = document.getElementById("itemLocation").value.trim();
+      const category = document.getElementById("itemCategory").value;
+      const price = document.getElementById("itemPrice").value.trim();
 
-      const titleInput = document.getElementById("itemTitle");
-      const locationInput = document.getElementById("itemLocation");
-      const categoryInput = document.getElementById("itemCategory");
-      const priceInput = document.getElementById("itemPrice");
-
-      const title = titleInput.value.trim();
-      const location = locationInput.value.trim();
-      const category = categoryInput.value;
-      const price = priceInput.value.trim();
-
-      if (!title) return alert("Enter an item name.");
+      if (!title) return alert("Enter item name.");
 
       const isFree = !price || price === "0";
       await addDoc(collection(db, "items"), {
@@ -402,12 +421,11 @@
         createdAt: serverTimestamp()
       });
 
-      titleInput.value = "";
-      locationInput.value = "";
-      priceInput.value = "";
+      document.getElementById("itemTitle").value = "";
+      document.getElementById("itemLocation").value = "";
+      document.getElementById("itemPrice").value = "";
     };
 
-    // 4. Lender Controls (Toggle Status & Delete)
     window.toggleBorrowed = async (id, currentStatus) => {
       await updateDoc(doc(db, "items", id), {
         status: currentStatus ? "available" : "borrowed"
@@ -420,30 +438,132 @@
       }
     };
 
-    // 5. In-App Chat
-    window.openChat = function(itemId, itemTitle) {
+    // 4. Start / Find Chat Thread
+    window.startChatWithLender = async function(itemId, itemTitle, lenderUid, lenderName) {
       if (!currentUser) return alert("Please sign in with Google to chat.");
-      activeItemId = itemId;
-      document.getElementById("chatItemTitle").innerText = itemTitle;
-      const modal = document.getElementById("chatModal");
+      if (currentUser.uid === lenderUid) return alert("This is your own listing!");
+
+      // Composite ID so borrower and lender share exactly 1 chat for this item
+      const convoId = `${itemId}_${currentUser.uid}`;
+
+      await updateDoc(doc(db, "conversations", convoId), {
+        itemId,
+        itemTitle,
+        borrowerUid: currentUser.uid,
+        borrowerName: currentUser.displayName,
+        lenderUid,
+        lenderName,
+        participants: [currentUser.uid, lenderUid],
+        lastUpdated: serverTimestamp()
+      }).catch(async () => {
+        // If document doesn't exist, create it via addDoc with deterministic ID
+        const { setDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+        await setDoc(doc(db, "conversations", convoId), {
+          itemId,
+          itemTitle,
+          borrowerUid: currentUser.uid,
+          borrowerName: currentUser.displayName,
+          lenderUid,
+          lenderName,
+          participants: [currentUser.uid, lenderUid],
+          lastUpdated: serverTimestamp()
+        });
+      });
+
+      openChatWindow(convoId, `${itemTitle} (Lender: ${lenderName})`);
+    };
+
+    // 5. Open Inquiries For Lender
+    window.openOwnerItemChats = async function(itemId, itemTitle) {
+      const q = query(
+        collection(db, "conversations"), 
+        where("itemId", "==", itemId),
+        where("lenderUid", "==", currentUser.uid)
+      );
+      const snap = await getDocs(q);
+
+      if (snap.empty) {
+        alert("No one has messaged about this item yet!");
+        return;
+      }
+
+      if (snap.size === 1) {
+        const convoDoc = snap.docs[0];
+        openChatWindow(convoDoc.id, `${itemTitle} (with ${convoDoc.data().borrowerName})`);
+      } else {
+        openInbox();
+      }
+    };
+
+    // 6. Global Inbox (My Chats)
+    window.openInbox = function() {
+      if (!currentUser) return alert("Sign in first!");
+      document.getElementById("chatModal").style.display = "none";
+      const modal = document.getElementById("inboxModal");
       modal.style.display = "flex";
 
-      if (unsubscribeChat) unsubscribeChat();
-      const messagesBox = document.getElementById("chatMessages");
-      messagesBox.innerHTML = "<div style='color:#777; font-size:0.85rem;'>Loading thread...</div>";
+      const listEl = document.getElementById("inboxList");
+      listEl.innerHTML = "<div style='color:#777; font-size:0.85rem;'>Loading chats...</div>";
 
-      const qChat = query(collection(db, "items", itemId, "messages"), orderBy("createdAt", "asc"));
-      unsubscribeChat = onSnapshot(qChat, (snap) => {
-        messagesBox.innerHTML = "";
+      const q = query(
+        collection(db, "conversations"), 
+        where("participants", "array-contains", currentUser.uid)
+      );
+
+      onSnapshot(q, (snap) => {
+        listEl.innerHTML = "";
         if (snap.empty) {
-          messagesBox.innerHTML = "<div style='color:#777; font-size:0.85rem;'>No messages yet. Ask to borrow!</div>";
+          listEl.innerHTML = "<div class='empty-state'>No active chats yet.</div>";
           return;
         }
 
-        snap.forEach((msgDoc) => {
-          const m = msgDoc.data();
-          const isMine = m.senderUid === currentUser.uid;
+        snap.forEach((d) => {
+          const c = d.data();
+          const isLender = c.lenderUid === currentUser.uid;
+          const otherPerson = isLender ? c.borrowerName : c.lenderName;
 
+          const card = document.createElement("div");
+          card.className = "inbox-card";
+          card.onclick = () => {
+            modal.style.display = "none";
+            openChatWindow(d.id, `${c.itemTitle} (with ${otherPerson})`);
+          };
+          card.innerHTML = `
+            <div class="inbox-item-title">${c.itemTitle}</div>
+            <div class="inbox-item-sub">${isLender ? 'Inquiry from' : 'Lender'}: <strong>${otherPerson}</strong></div>
+          `;
+          listEl.appendChild(card);
+        });
+      });
+    };
+
+    window.closeInbox = () => { document.getElementById("inboxModal").style.display = "none"; };
+
+    // 7. Live Chat Messages
+    function openChatWindow(convoId, displayTitle) {
+      activeConversationId = convoId;
+      document.getElementById("chatItemTitle").innerText = displayTitle;
+      document.getElementById("chatModal").style.display = "flex";
+
+      if (unsubscribeMessages) unsubscribeMessages();
+
+      const messagesBox = document.getElementById("chatMessages");
+      messagesBox.innerHTML = "<div style='color:#777; font-size:0.85rem;'>Loading conversation...</div>";
+
+      const q = collection(db, "conversations", convoId, "messages");
+      unsubscribeMessages = onSnapshot(q, (snap) => {
+        messagesBox.innerHTML = "";
+        if (snap.empty) {
+          messagesBox.innerHTML = "<div style='color:#777; font-size:0.85rem;'>No messages yet. Send a message to start!</div>";
+          return;
+        }
+
+        const msgs = [];
+        snap.forEach(d => msgs.push(d.data()));
+        msgs.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+
+        msgs.forEach(m => {
+          const isMine = m.senderUid === currentUser.uid;
           const wrapper = document.createElement("div");
           wrapper.className = `msg-wrapper ${isMine ? 'mine' : 'theirs'}`;
           wrapper.innerHTML = `
@@ -454,24 +574,24 @@
         });
         messagesBox.scrollTop = messagesBox.scrollHeight;
       });
-    };
+    }
 
-    window.closeChat = function() {
+    window.closeChat = () => {
       document.getElementById("chatModal").style.display = "none";
-      if (unsubscribeChat) unsubscribeChat();
-      activeItemId = null;
+      if (unsubscribeMessages) unsubscribeMessages();
+      activeConversationId = null;
     };
 
     window.sendMessage = async function(e) {
       e.preventDefault();
-      if (!activeItemId || !currentUser) return;
+      if (!activeConversationId || !currentUser) return;
 
-      const textInput = document.getElementById("chatInput");
-      const text = textInput.value.trim();
+      const input = document.getElementById("chatInput");
+      const text = input.value.trim();
       if (!text) return;
 
-      textInput.value = "";
-      await addDoc(collection(db, "items", activeItemId, "messages"), {
+      input.value = "";
+      await addDoc(collection(db, "conversations", activeConversationId, "messages"), {
         senderUid: currentUser.uid,
         senderName: currentUser.displayName,
         text,
@@ -490,7 +610,7 @@
     </header>
 
     <div class="main-grid">
-      <!-- Form Panel -->
+      <!-- Listing Form -->
       <section class="card sticky-panel">
         <h2>List Gear to Lend</h2>
         
@@ -515,7 +635,7 @@
         <button class="btn-primary" id="submitBtn" onclick="listItem()">List Gear</button>
       </section>
 
-      <!-- Feed Panel -->
+      <!-- Campus Feed -->
       <section class="card">
         <h2>Available on Campus</h2>
         <div id="itemFeed">
@@ -525,10 +645,19 @@
     </div>
   </div>
 
+  <!-- INBOX DRAWER (Permanent chats list) -->
+  <div class="inbox-modal" id="inboxModal">
+    <div class="modal-header">
+      <strong>My Conversations</strong>
+      <button class="close-btn" onclick="closeInbox()">✕</button>
+    </div>
+    <div class="inbox-list" id="inboxList"></div>
+  </div>
+
   <!-- CHAT DRAWER -->
   <div class="chat-modal" id="chatModal">
-    <div class="chat-header">
-      <strong id="chatItemTitle">Campus Inquiry</strong>
+    <div class="modal-header">
+      <strong id="chatItemTitle">Chat</strong>
       <button class="close-btn" onclick="closeChat()">✕</button>
     </div>
     <div class="chat-messages" id="chatMessages"></div>
