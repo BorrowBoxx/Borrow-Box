@@ -397,7 +397,7 @@
       padding: 24px 20px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 16px;
       z-index: 1001;
       transition: left 0.28s cubic-bezier(0.16, 1, 0.3, 1);
       box-shadow: 10px 0 30px rgba(0, 0, 0, 0.4);
@@ -416,7 +416,7 @@
     .drawer-nav {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
     }
 
     .drawer-nav button {
@@ -424,9 +424,9 @@
       border: 1px solid var(--surface-border);
       color: var(--text);
       text-align: left;
-      padding: 13px 16px;
+      padding: 12px 14px;
       font-family: inherit;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       font-weight: 600;
       cursor: pointer;
       display: flex;
@@ -537,7 +537,7 @@
       overflow-y: auto;
     }
 
-    /* Modal Form Segmented Tabs */
+    /* Modal Form Tabs */
     .form-tabs {
       display: flex;
       background: #0d0f14;
@@ -658,6 +658,38 @@
     .empty-state {
       text-align: center; color: var(--text-muted); padding: 42px 16px; font-size: 0.95rem; line-height: 1.5;
     }
+
+    /* Terms & Legal Styling */
+    .terms-text-box {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .terms-text-box strong {
+      color: var(--text);
+    }
+
+    .terms-checkbox-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 18px;
+      font-size: 0.85rem;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .terms-checkbox-label input {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      accent-color: #6366f1;
+      cursor: pointer;
+    }
   </style>
 
   <script type="module">
@@ -667,7 +699,7 @@
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { 
       getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, 
-      doc, updateDoc, deleteDoc, where, getDocs, setDoc
+      doc, updateDoc, deleteDoc, where, getDocs, setDoc, getDoc
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -699,8 +731,8 @@
       return currentUser ? (currentUser.displayName || currentUser.email.split("@")[0]) : "Student";
     }
 
-    // 1. Auth Listener
-    onAuthStateChanged(auth, (user) => {
+    // 1. Auth Listener & Terms Gate
+    onAuthStateChanged(auth, async (user) => {
       currentUser = user;
       const headerAuth = document.getElementById("headerAuthSection");
       const drawerAuth = document.getElementById("drawerAuthSection");
@@ -723,6 +755,9 @@
         drawerAuth.innerHTML = `
           <button class="btn-signout" onclick="logout()">🚪 Sign Out</button>
         `;
+
+        // Check if user has already accepted Terms of Service
+        checkTermsConsent(user);
       } else {
         headerAuth.innerHTML = `
           <button class="btn-header-auth" onclick="login()">Sign In</button>
@@ -732,6 +767,59 @@
       }
       renderFeed();
     });
+
+    // Check & Enforce Legal Terms
+    async function checkTermsConsent(user) {
+      const localConsent = localStorage.getItem("borrowbox_terms_accepted_" + user.uid);
+      if (localConsent === "true") return;
+
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists() && userDoc.data().termsAccepted) {
+          localStorage.setItem("borrowbox_terms_accepted_" + user.uid, "true");
+        } else {
+          // Open mandatory terms gate
+          document.getElementById("termsModal").style.display = "flex";
+        }
+      } catch (e) {
+        // Fallback: show terms gate if offline/permission check
+        document.getElementById("termsModal").style.display = "flex";
+      }
+    }
+
+    window.agreeToTerms = async function() {
+      const checkbox = document.getElementById("termsCheckbox");
+      if (!checkbox.checked) {
+        alert("Please check the box confirming you agree to the Campus Safety & Lending Terms.");
+        return;
+      }
+
+      if (!currentUser) return;
+
+      // Save locally
+      localStorage.setItem("borrowbox_terms_accepted_" + currentUser.uid, "true");
+
+      // Stamp in Firestore
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), {
+          uid: currentUser.uid,
+          name: getMyDisplayName(),
+          email: currentUser.email,
+          termsAccepted: true,
+          acceptedAt: serverTimestamp()
+        }, { merge: true });
+      } catch (err) {
+        console.warn("Could not sync terms to DB:", err);
+      }
+
+      document.getElementById("termsModal").style.display = "none";
+    };
+
+    window.openTermsReview = function() {
+      closeDrawer();
+      document.getElementById("termsReviewModal").style.display = "flex";
+    };
+    window.closeTermsReview = () => { document.getElementById("termsReviewModal").style.display = "none"; };
 
     window.saveCustomName = function() {
       const input = document.getElementById("customNameInput");
@@ -871,6 +959,11 @@
 
     window.openFormModal = () => {
       if (!currentUser) return alert("Please sign in from the top right before posting!");
+      // Double check terms
+      if (localStorage.getItem("borrowbox_terms_accepted_" + currentUser.uid) !== "true") {
+        document.getElementById("termsModal").style.display = "flex";
+        return;
+      }
       document.getElementById("formModal").style.display = "flex";
       setFormMode("lend");
     };
@@ -974,6 +1067,10 @@
     window.startChatWithLender = async function(itemId, itemTitle, lenderUid, lenderName) {
       if (!currentUser) return alert("Please sign in to message.");
       if (currentUser.uid === lenderUid) return alert("This is your own post!");
+      if (localStorage.getItem("borrowbox_terms_accepted_" + currentUser.uid) !== "true") {
+        document.getElementById("termsModal").style.display = "flex";
+        return;
+      }
 
       const myName = getMyDisplayName();
       const convoId = `${itemId}_${currentUser.uid}`;
@@ -1132,6 +1229,8 @@
       </div>
 
       <button onclick="openInbox()">💬 My Conversations</button>
+      <button onclick="openTermsReview()">📜 Terms & Safety</button>
+      
       <div id="drawerAuthSection" style="margin-top:10px;"></div>
     </div>
   </div>
@@ -1188,6 +1287,48 @@
         <input type="text" id="chatInput" placeholder="Type a message..." required />
         <button class="btn-primary" type="submit">Send</button>
       </form>
+    </div>
+  </div>
+
+  <!-- MANDATORY TERMS GATE MODAL (Shows on first sign-in) -->
+  <div class="modal-backdrop" id="termsModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <strong style="font-size:1.05rem;">Campus Safety & Lending Terms</strong>
+      </div>
+      <div class="modal-body">
+        <div class="terms-text-box">
+          <p>Welcome to <strong>BorrowBox</strong>! Before sharing or requesting items, please confirm your agreement to our campus guidelines:</p>
+          <p>1. <strong>Directory Only:</strong> BorrowBox is a free, student-built directory. We do not inspect, insure, or guarantee any item listed.</p>
+          <p>2. <strong>Personal Responsibility:</strong> Lending and borrowing is done entirely at your own risk. Any item damage, loss, or return dispute is solely between you and the other student.</p>
+          <p>3. <strong>Prohibited Stuff:</strong> Listing illegal substances, dangerous tools, stolen property, or exam-cheating materials is strictly forbidden.</p>
+          <p>4. <strong>Peer Payments:</strong> Any voluntary rental price or deposit is paid directly peer-to-peer (via UPI or cash). BorrowBox handles zero money and takes zero fees.</p>
+        </div>
+        <label class="terms-checkbox-label">
+          <input type="checkbox" id="termsCheckbox" />
+          <span>I understand and agree to lend and borrow responsibly at my own risk.</span>
+        </label>
+        <button class="btn-primary" onclick="agreeToTerms()">I Agree & Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TERMS REVIEW MODAL (From Drawer) -->
+  <div class="modal-backdrop" id="termsReviewModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <strong style="font-size:1.05rem;">Terms & Safety Policy</strong>
+        <button class="close-btn" onclick="closeTermsReview()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="terms-text-box">
+          <p><strong>1. Role of BorrowBox</strong><br>BorrowBox operates as an intermediary peer-to-peer directory under applicable IT Guidelines. We do not manufacture, inspect, own, or store any physical items.</p>
+          <p><strong>2. Bailment & Responsibility</strong><br>All arrangements regarding item handover, duration, return condition, and care are mutual agreements solely between the lender and borrower.</p>
+          <p><strong>3. Content Removal</strong><br>Any listing reported for violating campus policy or student safety will be removed immediately without prior notice.</p>
+          <p><strong>4. Privacy</strong><br>Your public campus handle is shown to peers when listing or inquiring. We do not sell or share user data with third-party marketers.</p>
+        </div>
+        <button class="btn-action" style="width:100%; margin-top:20px;" onclick="closeTermsReview()">Close</button>
+      </div>
     </div>
   </div>
 </body>
