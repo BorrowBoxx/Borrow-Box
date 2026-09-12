@@ -26,6 +26,7 @@
       --pinned-badge: #f59e0b;
       --pinned-badge-bg: rgba(245, 158, 11, 0.14);
       --danger: #f43f5e;
+      --danger-bg: rgba(244, 63, 94, 0.14);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -54,7 +55,6 @@
       padding-bottom: 90px;
     }
 
-    /* Broadcast Alert Banner */
     .broadcast-banner {
       display: none;
       background: linear-gradient(90deg, #4f46e5, #06b6d4);
@@ -68,7 +68,6 @@
       box-shadow: 0 4px 16px rgba(79, 70, 229, 0.3);
     }
 
-    /* Glass Header */
     header {
       display: flex;
       align-items: center;
@@ -158,7 +157,6 @@
       background: rgba(255, 255, 255, 0.1);
     }
 
-    /* Search & Toggle Filter */
     .filter-section {
       display: flex;
       gap: 10px;
@@ -227,7 +225,6 @@
       box-shadow: 0 3px 10px var(--primary-glow);
     }
 
-    /* Feed Card & Container */
     .card {
       background: var(--surface);
       backdrop-filter: blur(14px);
@@ -272,7 +269,6 @@
       box-shadow: 0 0 8px var(--free-badge);
     }
 
-    /* Feed Items */
     .item-card {
       display: flex;
       justify-content: space-between;
@@ -335,6 +331,16 @@
     .status-borrowed { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
     .badge-pinned { background: var(--pinned-badge-bg); color: var(--pinned-badge); border: 1px solid rgba(245, 158, 11, 0.3); }
 
+    .ai-badge {
+      background: var(--danger-bg);
+      border: 1px solid var(--danger);
+      color: #fca5a5;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      margin-top: 6px;
+    }
+
     .btn-action {
       background: rgba(255, 255, 255, 0.07);
       border: 1px solid var(--surface-border);
@@ -392,7 +398,6 @@
       color: white !important;
     }
 
-    /* Floating Action Button (+) */
     .fab {
       position: fixed;
       bottom: 24px;
@@ -419,7 +424,6 @@
       box-shadow: 0 12px 30px rgba(99, 102, 241, 0.6);
     }
 
-    /* Left Drawer Menu */
     .drawer-overlay {
       display: none;
       position: fixed;
@@ -513,7 +517,6 @@
       font-size: 0.9rem;
     }
 
-    /* Admin Deck Section */
     .admin-deck-box {
       display: none;
       background: rgba(239, 68, 68, 0.05);
@@ -541,7 +544,6 @@
     .admin-stat-val { font-size: 1.15rem; font-weight: 800; color: #818cf8; }
     .admin-stat-lbl { font-size: 0.68rem; color: var(--text-muted); }
 
-    /* Modals */
     .modal-backdrop {
       display: none;
       position: fixed;
@@ -607,7 +609,6 @@
       overflow-y: auto;
     }
 
-    /* Modal Form Tabs */
     .form-tabs {
       display: flex;
       background: #0d0f14;
@@ -786,10 +787,13 @@
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
 
-    // ⚡ MASTER ADMIN CONFIGURATION: Paste your actual Google email here
+    // ⚡ MASTER ADMIN CONFIGURATION
     const ADMIN_EMAIL = "priyathamcoding@gmail.com"; 
 
-    // 🚫 CONTENT MODERATION BLACKLIST
+    // 🤖 GEMINI AI SENTINEL CONFIGURATION (Free Key from aistudio.google.com)
+    const GEMINI_API_KEY = "YOUR_FREE_GEMINI_KEY";
+
+    // 🚫 CONTENT MODERATION BLACKLIST (Fast Local Filter)
     const BANNED_KEYWORDS = [
       "cigarette", "smoke", "cigar", "vape", "beedi", "bidi", "weed", "ganja", "cannabis",
       "alcohol", "beer", "whiskey", "vodka", "liquor", "drugs", "pills", "condom", "sex",
@@ -812,6 +816,42 @@
       return currentUser ? (currentUser.displayName || currentUser.email.split("@")[0]) : "Student";
     }
 
+    // 🤖 Automated AI Content Moderator
+    async function inspectWithGemini(text) {
+      if (!GEMINI_API_KEY || GEMINI_API_KEY.includes("YOUR_")) {
+        console.warn("Gemini API key missing. Relying on local keywords.");
+        return { isSuspicious: false, reason: "" };
+      }
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const systemInstruction = `
+        You are an automated campus safety moderator for "BorrowBox".
+        Inspect the provided campus post for:
+        - Banned substances (vapes, weed, tobacco, alcohol, drugs)
+        - Solicitations (dating, casual hookups, boyfriend/girlfriend ads)
+        - Academic fraud (selling leaked exams or assignments)
+        - Scams, extortion, threats, or harassment
+        Respond ONLY with valid JSON:
+        { "isSuspicious": boolean, "reason": "Short 1-sentence note for campus admin" }
+      `;
+
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: `${systemInstruction}\n\nPost:\n"${text}"` }] }],
+            generationConfig: { responseMimeType: "application/json" }
+          })
+        });
+        const data = await res.json();
+        return JSON.parse(data.candidates[0].content.parts[0].text);
+      } catch (err) {
+        console.error("Gemini Inspection Failed:", err);
+        return { isSuspicious: false, reason: "" };
+      }
+    }
+
     // 1. Auth Listener, Ban Check & Terms Gate
     onAuthStateChanged(auth, async (user) => {
       currentUser = user;
@@ -821,7 +861,6 @@
       const adminDeck = document.getElementById("adminDeck");
 
       if (user) {
-        // Verify Ban Status
         const banSnap = await getDoc(doc(db, "bannedUsers", user.uid));
         if (banSnap.exists()) {
           isCurrentUserBanned = true;
@@ -847,7 +886,6 @@
           <button class="btn-signout" onclick="logout()">🚪 Sign Out</button>
         `;
 
-        // Check if current user is Master Admin
         if (user.email === ADMIN_EMAIL) {
           adminDeck.style.display = "flex";
           document.getElementById("btnAdminQueue").style.display = "flex";
@@ -869,7 +907,6 @@
       renderFeed();
     });
 
-    // Check & Enforce Legal Terms
     async function checkTermsConsent(user) {
       const localConsent = localStorage.getItem("borrowbox_terms_accepted_" + user.uid);
       if (localConsent === "true") return;
@@ -944,7 +981,7 @@
       closeDrawer();
     };
 
-    // 2. Real-Time Broadcast Announcement Listener
+    // 2. Broadcast Announcement Listener
     onSnapshot(doc(db, "system", "announcement"), (snap) => {
       const banner = document.getElementById("broadcastBanner");
       const textEl = document.getElementById("broadcastText");
@@ -973,10 +1010,9 @@
         else activeCount++;
 
         if (data.type === "request") reqCount++;
-        if ((data.reportCount || 0) > 0) flaggedCount++;
+        if ((data.reportCount || 0) > 0 || data.aiFlagged) flaggedCount++;
       });
 
-      // Update Live Admin Counters
       document.getElementById("statActive").innerText = activeCount;
       document.getElementById("statReq").innerText = reqCount;
       document.getElementById("statResolved").innerText = resolvedCount;
@@ -985,11 +1021,13 @@
       renderFeed();
     });
 
+    // 4. Feed Rendering (Hides Flagged Items From Students)
     function renderFeed() {
       const feedContainer = document.getElementById("itemFeed");
       feedContainer.innerHTML = "";
 
-      // Sort: Pinned items stay on top, followed by date
+      const isAdmin = currentUser && currentUser.email === ADMIN_EMAIL;
+
       const sorted = [...allItems].sort((a, b) => {
         if (a.pinned && !b.pinned) return -1;
         if (!a.pinned && b.pinned) return 1;
@@ -997,6 +1035,11 @@
       });
 
       const filtered = sorted.filter(item => {
+        // Students NEVER see items flagged by AI or with >= 3 reports
+        if (!isAdmin && (item.aiFlagged || (item.reportCount || 0) >= 3)) {
+          return false;
+        }
+
         const matchesFilter = (currentFilter === "all") || (item.type === "request");
         const text = `${item.title || ""} ${item.location || ""} ${item.ownerName || ""}`.toLowerCase();
         const matchesSearch = !searchQuery || text.includes(searchQuery.toLowerCase());
@@ -1010,7 +1053,6 @@
 
       filtered.forEach(item => {
         const isOwner = currentUser && item.ownerUid === currentUser.uid;
-        const isAdmin = currentUser && currentUser.email === ADMIN_EMAIL;
         const isBorrowed = item.status === "borrowed";
         const isRequest = item.type === "request";
         const isPinned = item.pinned === true;
@@ -1022,8 +1064,9 @@
             <div class="item-title">${isPinned ? '📌 ' : ''}${item.title || "Untitled"}</div>
             <div class="item-sub">
               📍 ${item.location || "Campus"} • ${isRequest ? "Wanted by" : "Posted by"}: <strong>${isOwner ? "You (" + item.ownerName + ")" : (item.ownerName || "Student")}</strong>
-              ${isAdmin && (item.reportCount || 0) > 0 ? `<br><small style="color:#f87171;">🚩 Flags: ${item.reportCount}</small>` : ''}
+              ${isAdmin && ((item.reportCount || 0) > 0 || item.aiFlagged) ? `<br><small style="color:#f87171;">🚩 Flags: ${item.reportCount || 0} ${item.aiFlagged ? '• 🤖 AI Flagged' : ''}</small>` : ''}
             </div>
+            ${isAdmin && item.aiFlagged ? `<div class="ai-badge">🤖 Reason: ${item.aiReason || "Flagged by AI safety check"}</div>` : ''}
           </div>
           <div class="item-actions">
             <div class="pill-group">
@@ -1078,7 +1121,7 @@
       renderFeed();
     };
 
-    // 4. Modal Form Submission
+    // 5. Modal Form Submission with Gemini Integration
     window.setFormMode = function(mode) {
       activeFormMode = mode;
       const tabLend = document.getElementById("tabLend");
@@ -1120,9 +1163,11 @@
       const title = document.getElementById("itemTitle").value.trim();
       const location = document.getElementById("itemLocation").value.trim();
       const price = document.getElementById("itemPrice").value.trim();
+      const submitBtn = document.getElementById("modalSubmitBtn");
 
       if (!title) return alert("Please enter what you are lending or requesting.");
 
+      // Quick Local Blacklist Check
       const fullText = (title + " " + location).toLowerCase();
       const violatedWord = BANNED_KEYWORDS.find(word => {
         const regex = new RegExp(`\\b${word}\\b`, "i");
@@ -1130,9 +1175,15 @@
       });
 
       if (violatedWord) {
-        alert("⚠️ Prohibited content detected. Listings for tobacco, substances, dating, weapons, or illegal stuff are strictly forbidden on BorrowBox.");
+        alert("⚠️ Prohibited content detected. Listings for tobacco, substances, dating, weapons, or illegal items are strictly forbidden.");
         return;
       }
+
+      submitBtn.disabled = true;
+      submitBtn.innerText = "🤖 Checking Safety...";
+
+      // Run Gemini Inspection
+      const scan = await inspectWithGemini(`${title} at ${location}`);
 
       const isRequest = (activeFormMode === "request");
       const isFree = !price || price === "0";
@@ -1147,14 +1198,21 @@
         price: isRequest ? 0 : (isFree ? 0 : Number(price)),
         status: "available",
         pinned: false,
-        reportCount: 0,
+        reportCount: scan.isSuspicious ? 1 : 0,
+        aiFlagged: scan.isSuspicious,
+        aiReason: scan.isSuspicious ? scan.reason : "",
         createdAt: serverTimestamp()
       });
 
+      submitBtn.disabled = false;
       document.getElementById("itemTitle").value = "";
       document.getElementById("itemLocation").value = "";
       document.getElementById("itemPrice").value = "";
       closeFormModal();
+
+      if (scan.isSuspicious) {
+        alert("⚠️ Your post was flagged by our automated safety sentinel and submitted for admin review.");
+      }
     };
 
     window.toggleBorrowed = async (id, currentStatus) => {
@@ -1170,7 +1228,6 @@
       }
     };
 
-    // 🚩 Community Report Handler
     window.reportItem = async (itemId) => {
       if (!currentUser) return alert("Please sign in to report items.");
       if (confirm("Report this post as inappropriate or violating campus rules?")) {
@@ -1180,13 +1237,8 @@
           if (!snap.exists()) return;
 
           const currentReports = (snap.data().reportCount || 0) + 1;
-          if (currentReports >= 3) {
-            await deleteDoc(itemRef);
-            alert("Post auto-removed due to multiple community reports.");
-          } else {
-            await updateDoc(itemRef, { reportCount: currentReports });
-            alert("Thank you. Post flagged for moderation.");
-          }
+          await updateDoc(itemRef, { reportCount: currentReports });
+          alert("Thank you. Post flagged for moderation.");
         } catch (err) {
           alert("Error reporting: " + err.message);
         }
@@ -1229,7 +1281,7 @@
       const list = document.getElementById("reportQueueList");
       list.innerHTML = "";
 
-      const flagged = allItems.filter(item => (item.reportCount || 0) > 0);
+      const flagged = allItems.filter(item => (item.reportCount || 0) > 0 || item.aiFlagged);
       if (flagged.length === 0) {
         list.innerHTML = "<div class='empty-state'>🎉 No flagged posts! Campus is clean.</div>";
         return;
@@ -1241,9 +1293,10 @@
         card.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:flex-start;">
             <div>
-              <strong style="color:#f87171;">🚩 Flags: ${item.reportCount}</strong>
+              <strong style="color:#f87171;">🚩 Flags: ${item.reportCount || 0} ${item.aiFlagged ? '• 🤖 AI Flagged' : ''}</strong>
               <div class="item-title" style="margin-top:4px;">${item.title}</div>
               <div class="item-sub">By: ${item.ownerName} • 📍 ${item.location}</div>
+              ${item.aiFlagged ? `<div class="ai-badge">🤖 AI Note: ${item.aiReason}</div>` : ''}
             </div>
             <div style="display:flex; gap:6px;">
               <button class="btn-action" onclick="dismissFlags('${item.id}')">Dismiss</button>
@@ -1258,11 +1311,11 @@
     window.closeReportQueue = () => { document.getElementById("reportQueueModal").style.display = "none"; };
 
     window.dismissFlags = async (id) => {
-      await updateDoc(doc(db, "items", id), { reportCount: 0 });
-      openReportQueue(); // Refresh queue
+      await updateDoc(doc(db, "items", id), { reportCount: 0, aiFlagged: false, aiReason: "" });
+      openReportQueue();
     };
 
-    // 5. Drawer & History
+    // 6. Drawer, Chats & Inbox
     window.openDrawer = () => {
       document.getElementById("drawer").classList.add("open");
       document.getElementById("drawerOverlay").style.display = "block";
@@ -1310,7 +1363,6 @@
 
     window.closeHistory = () => { document.getElementById("historyModal").style.display = "none"; };
 
-    // 6. Chats & Inbox
     window.openInbox = function() {
       closeDrawer();
       if (!currentUser) return alert("Please sign in from the top right first!");
@@ -1460,13 +1512,11 @@
 </head>
 <body>
   <div class="app-wrapper">
-    <!-- Real-time Broadcast Banner -->
     <div class="broadcast-banner" id="broadcastBanner">
       <span id="broadcastText"></span>
       <button style="background:none; border:none; color:white; font-size:1.1rem; cursor:pointer;" onclick="document.getElementById('broadcastBanner').style.display='none'">✕</button>
     </div>
 
-    <!-- Header -->
     <header>
       <div class="header-left">
         <button class="menu-btn" onclick="openDrawer()">☰</button>
@@ -1477,7 +1527,6 @@
       </div>
     </header>
 
-    <!-- Search & Feed Filter -->
     <div class="filter-section">
       <div class="search-wrapper">
         <span class="search-icon">🔍</span>
@@ -1494,7 +1543,6 @@
       </div>
     </div>
 
-    <!-- Feed -->
     <section class="card">
       <div class="card-heading-row">
         <h2>Campus Feed</h2>
@@ -1505,16 +1553,13 @@
       </div>
     </section>
 
-    <!-- Permanent Campus Disclaimer -->
     <footer style="text-align: center; padding: 20px 10px 10px; font-size: 0.75rem; color: var(--text-muted); line-height: 1.5; border-top: 1px solid var(--surface-border); margin-top: 10px;">
       <p>⚠️ <strong>Disclaimer:</strong> BorrowBox is a student directory. We do not own, inspect, or insure listed items and are not responsible for any damage, loss, non-return, or transaction disputes. Lend &amp; borrow at your own risk.</p>
     </footer>
   </div>
 
-  <!-- FLOATING ACTION BUTTON (+) -->
   <button class="fab" onclick="openFormModal()">+</button>
 
-  <!-- LEFT DRAWER MENU (☰) -->
   <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
   <div class="drawer" id="drawer">
     <div class="drawer-header">
@@ -1522,7 +1567,6 @@
       <button class="close-btn" onclick="closeDrawer()">✕</button>
     </div>
     <div class="drawer-nav">
-      <!-- Admin Deck (Visible Only to ADMIN_EMAIL) -->
       <div id="adminDeck" class="admin-deck-box">
         <strong style="color:#ef4444; font-size:0.85rem; letter-spacing:0.5px;">⚡ MASTER ADMIN DECK</strong>
         <div class="admin-stats-grid">
@@ -1563,7 +1607,6 @@
     </div>
   </div>
 
-  <!-- POST MODAL (Lend vs Request) -->
   <div class="modal-backdrop" id="formModal">
     <div class="modal-box">
       <div class="modal-header">
@@ -1592,7 +1635,6 @@
     </div>
   </div>
 
-  <!-- INBOX MODAL -->
   <div class="modal-backdrop" id="inboxModal">
     <div class="modal-box">
       <div class="modal-header">
@@ -1603,7 +1645,6 @@
     </div>
   </div>
 
-  <!-- HISTORY MODAL -->
   <div class="modal-backdrop" id="historyModal">
     <div class="modal-box">
       <div class="modal-header">
@@ -1614,7 +1655,6 @@
     </div>
   </div>
 
-  <!-- REPORTED QUEUE MODAL (ADMIN ONLY) -->
   <div class="modal-backdrop" id="reportQueueModal">
     <div class="modal-box">
       <div class="modal-header">
@@ -1625,7 +1665,6 @@
     </div>
   </div>
 
-  <!-- BANNED NOTICE MODAL -->
   <div class="modal-backdrop" id="banNoticeModal" style="z-index: 2000;">
     <div class="modal-box">
       <div class="modal-header">
@@ -1640,7 +1679,6 @@
     </div>
   </div>
 
-  <!-- CHAT MODAL -->
   <div class="modal-backdrop" id="chatModal">
     <div class="modal-box">
       <div class="modal-header">
@@ -1658,7 +1696,6 @@
     </div>
   </div>
 
-  <!-- MANDATORY TERMS GATE MODAL -->
   <div class="modal-backdrop" id="termsModal">
     <div class="modal-box">
       <div class="modal-header">
@@ -1681,7 +1718,6 @@
     </div>
   </div>
 
-  <!-- TERMS REVIEW MODAL -->
   <div class="modal-backdrop" id="termsReviewModal">
     <div class="modal-box">
       <div class="modal-header">
