@@ -791,20 +791,20 @@
     const ADMIN_EMAIL = "priyathamcoding@gmail.com"; 
 
     // 🤖 GEMINI AI SENTINEL CONFIGURATION (Free Key from aistudio.google.com)
-    const GEMINI_API_KEY = "YOUR_FREE_GEMINI_KEY";
+    const GEMINI_API_KEY = "AQ.Ab8RN6KEI45ZNyab6aqKLxByPbjTpQCejTx6LwYQnHHCK_srGA";
 
     // 🚫 CONTENT MODERATION BLACKLIST (Fast Local Filter)
     const BANNED_KEYWORDS = [
-      "cigarette", "smoke", "cigar", "vape", "beedi", "bidi", "weed", "ganja", "cannabis",
-      "alcohol", "beer", "whiskey", "vodka", "liquor", "drugs", "pills", "condom", "sex",
-      "girlfriend", "boyfriend", "gf", "bf", "date", "hookup", "dating", "cheating", "weapon", "knife"
+      "cigarette", "smoke", "cigar", "vape", "beedi", "bidi", "weed", "ganja", "cannabis","erripuka","munda",
+      "alcohol", "beer", "whiskey", "vodka", "liquor", "drugs", "pills", "condom", "sex","love","madda","lavada",
+      "girlfriend", "boyfriend", "gf", "bf", "date", "hookup", "dating", "cheating","puka","kojja","kja","weapon", "knife"
     ];
 
     let currentUser = null;
     let isCurrentUserBanned = false;
     let activeConversationId = null;
     let unsubscribeMessages = null;
-
+    
     let allItems = [];
     let currentFilter = "all";
     let searchQuery = "";
